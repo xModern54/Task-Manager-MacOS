@@ -1,0 +1,18 @@
+import SwiftUI
+
+@main
+struct TaskMgmtMacApp: App {
+    @StateObject private var viewModel = TaskManagerViewModel(
+        monitor: ProcessMonitor()
+    )
+
+    var body: some Scene {
+        WindowGroup {
+            TaskManagerRootView(viewModel: viewModel)
+                .frame(width: 682, height: 660)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.automatic)
+        .defaultSize(width: 682, height: 660)
+    }
+}
