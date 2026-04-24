@@ -2,8 +2,11 @@ import SwiftUI
 
 struct PerformancePage: View {
     @State private var selectedDeviceID = PerformanceDevice.mockDevices[0].id
+    @State private var processorName: String?
+    @State private var didLoadProcessorName = false
 
     private let devices = PerformanceDevice.mockDevices
+    private let cpuInfoProvider: any SystemCPUInfoProviding = SysctlCPUInfoProvider()
 
     private var selectedDevice: PerformanceDevice {
         devices.first { $0.id == selectedDeviceID } ?? devices[0]
@@ -19,10 +22,18 @@ struct PerformancePage: View {
                     selectedDeviceID: $selectedDeviceID
                 )
 
-                PerformanceDetail(device: selectedDevice)
+                PerformanceDetail(
+                    device: selectedDevice,
+                    processorName: processorName
+                )
             }
         }
         .background(WindowsTaskManagerTheme.content)
+        .task {
+            guard !didLoadProcessorName else { return }
+            didLoadProcessorName = true
+            processorName = cpuInfoProvider.processorName()
+        }
     }
 }
 
@@ -130,6 +141,15 @@ private struct PerformanceDeviceRow: View {
 
 private struct PerformanceDetail: View {
     let device: PerformanceDevice
+    let processorName: String?
+
+    private var detailSubtitle: String {
+        if device.kind == .cpu, let processorName {
+            return processorName
+        }
+
+        return device.detailSubtitle
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -140,7 +160,7 @@ private struct PerformanceDetail: View {
 
                 Spacer()
 
-                Text(device.detailSubtitle)
+                Text(detailSubtitle)
                     .taskManagerFont(13)
                     .lineLimit(1)
                     .multilineTextAlignment(.trailing)
