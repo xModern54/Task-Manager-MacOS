@@ -1,12 +1,19 @@
 import SwiftUI
 
 struct PerformancePage: View {
+    let summary: ProcessSummary
+
     @State private var selectedDeviceID = PerformanceDevice.mockDevices[0].id
     @State private var processorName: String?
     @State private var didLoadProcessorName = false
 
-    private let devices = PerformanceDevice.mockDevices
     private let cpuInfoProvider: any SystemCPUInfoProviding = SysctlCPUInfoProvider()
+
+    private var devices: [PerformanceDevice] {
+        PerformanceDevice.mockDevices.map { device in
+            device.kind == .cpu ? device.updatingCPUStats(from: summary) : device
+        }
+    }
 
     private var selectedDevice: PerformanceDevice {
         devices.first { $0.id == selectedDeviceID } ?? devices[0]
@@ -334,4 +341,36 @@ private func rotated(_ values: [Double], by offset: Int) -> [Double] {
     guard !values.isEmpty else { return values }
     let split = offset % values.count
     return Array(values[split...] + values[..<split])
+}
+
+private extension PerformanceDevice {
+    func updatingCPUStats(from summary: ProcessSummary) -> PerformanceDevice {
+        guard kind == .cpu else { return self }
+
+        let updatedStats = stats.map { stat in
+            switch stat.label {
+            case "Utilization":
+                PerformanceStat(label: stat.label, value: "\(summary.cpu)%")
+            case "Processes":
+                PerformanceStat(label: stat.label, value: "\(summary.processCount)")
+            case "Threads":
+                PerformanceStat(label: stat.label, value: "\(summary.threadCount)")
+            default:
+                stat
+            }
+        }
+
+        return PerformanceDevice(
+            id: id,
+            kind: kind,
+            title: title,
+            subtitle: subtitle,
+            valueText: "\(summary.cpu)% 5.03 GHz",
+            detailTitle: detailTitle,
+            detailSubtitle: detailSubtitle,
+            color: color,
+            samples: samples,
+            stats: updatedStats
+        )
+    }
 }

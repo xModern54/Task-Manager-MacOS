@@ -48,7 +48,9 @@ actor ProcessMonitor: ProcessMonitoringProviding {
                 memory: sample.memoryUsagePercent,
                 disk: 0,
                 network: 0,
-                gpu: 0
+                gpu: 0,
+                processCount: sample.processes.count,
+                threadCount: sample.processes.reduce(0) { $0 + $1.threadCount }
             ),
             processes: metrics
         )

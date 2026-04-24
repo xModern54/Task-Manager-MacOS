@@ -47,6 +47,7 @@ struct LibprocSystemProcessProvider: SystemProcessProviding {
             name: name,
             executablePath: executablePath(for: pid),
             cpuTimeNanoseconds: nanoseconds(forMachTicks: taskInfo.pti_total_user + taskInfo.pti_total_system, timebase: timebase),
+            threadCount: Int(taskInfo.pti_threadnum),
             residentMemoryBytes: taskInfo.pti_resident_size,
             physicalFootprintBytes: taskInfo.pti_resident_size
         )

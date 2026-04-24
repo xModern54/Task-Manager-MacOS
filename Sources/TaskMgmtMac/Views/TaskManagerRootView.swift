@@ -20,7 +20,7 @@ struct TaskManagerRootView: View {
                 case .processes:
                     ProcessesPage(viewModel: viewModel)
                 case .devices:
-                    PerformancePage()
+                    PerformancePage(summary: viewModel.snapshot.summary)
                 }
             }
         }

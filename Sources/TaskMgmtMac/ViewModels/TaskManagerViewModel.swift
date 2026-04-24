@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var snapshot = ProcessSnapshot(
-        summary: ProcessSummary(cpu: 0, memory: 0, disk: 0, network: 0, gpu: 0),
+        summary: ProcessSummary(cpu: 0, memory: 0, disk: 0, network: 0, gpu: 0, processCount: 0, threadCount: 0),
         processes: []
     )
     @Published var selectedSection: TaskManagerSection = .processes

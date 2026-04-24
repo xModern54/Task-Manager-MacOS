@@ -71,6 +71,8 @@ struct ProcessSummary: Hashable, Sendable {
     let disk: Int
     let network: Int
     let gpu: Int
+    let processCount: Int
+    let threadCount: Int
 }
 
 struct ProcessSnapshot: Hashable, Sendable {
