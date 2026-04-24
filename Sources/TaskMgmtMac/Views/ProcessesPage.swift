@@ -2,21 +2,38 @@ import SwiftUI
 
 struct ProcessesPage: View {
     @ObservedObject var viewModel: TaskManagerViewModel
+    @State private var isTableMounted = false
 
     var body: some View {
         VStack(spacing: 0) {
             ProcessesCommandBar()
 
-            ProcessTableView(
-                summary: viewModel.snapshot.summary,
-                processes: viewModel.visibleProcesses,
-                sortColumn: viewModel.sortColumn,
-                sortDirection: viewModel.sortDirection,
-                selectedProcessID: $viewModel.selectedProcessID,
-                onSort: viewModel.sort(by:)
-            )
+            if isTableMounted {
+                ProcessTableView(
+                    summary: viewModel.snapshot.summary,
+                    processes: viewModel.visibleProcesses,
+                    sortColumn: viewModel.sortColumn,
+                    sortDirection: viewModel.sortDirection,
+                    selectedProcessID: $viewModel.selectedProcessID,
+                    onSort: viewModel.sort(by:)
+                )
+            } else {
+                WindowsTaskManagerTheme.table
+            }
         }
         .background(WindowsTaskManagerTheme.content)
+        .task {
+            isTableMounted = false
+            await Task.yield()
+
+            do {
+                try await Task.sleep(for: .milliseconds(60))
+            } catch {
+                return
+            }
+
+            isTableMounted = true
+        }
     }
 }
 

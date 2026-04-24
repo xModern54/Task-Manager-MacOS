@@ -10,7 +10,7 @@ struct ProcessTableView: View {
 
     var body: some View {
         ScrollView(.vertical) {
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 ProcessTableHeader(
                     summary: summary,
                     sortColumn: sortColumn,
