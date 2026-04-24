@@ -12,7 +12,9 @@ final class TaskManagerViewModel: ObservableObject {
     @Published var isSidebarExpanded = false
     @Published private(set) var sortColumn: ProcessSortColumn = .memory
     @Published private(set) var sortDirection: SortDirection = .descending
+    @Published private(set) var cpuHistory = Array(repeating: 0.0, count: 60)
 
+    private let cpuHistoryLimit = 60
     private let refreshInterval: Duration = .milliseconds(500)
     private let monitor: any ProcessMonitoringProviding
 
@@ -44,6 +46,7 @@ final class TaskManagerViewModel: ObservableObject {
     func refresh() async {
         let nextSnapshot = await monitor.currentSnapshot()
         snapshot = nextSnapshot
+        appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
 
         if let selectedProcessID, !nextSnapshot.processes.contains(where: { $0.id == selectedProcessID }) {
             self.selectedProcessID = nil
@@ -72,6 +75,14 @@ final class TaskManagerViewModel: ObservableObject {
         } else {
             sortColumn = column
             sortDirection = .descending
+        }
+    }
+
+    private func appendCPUHistoryValue(_ value: Double) {
+        cpuHistory.append(value)
+
+        if cpuHistory.count > cpuHistoryLimit {
+            cpuHistory.removeFirst(cpuHistory.count - cpuHistoryLimit)
         }
     }
 }

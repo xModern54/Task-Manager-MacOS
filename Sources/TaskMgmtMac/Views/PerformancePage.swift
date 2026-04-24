@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PerformancePage: View {
     let summary: ProcessSummary
+    let cpuHistory: [Double]
 
     @State private var selectedDeviceID = PerformanceDevice.mockDevices[0].id
     @State private var processorName: String?
@@ -11,7 +12,7 @@ struct PerformancePage: View {
 
     private var devices: [PerformanceDevice] {
         PerformanceDevice.mockDevices.map { device in
-            device.kind == .cpu ? device.updatingCPUStats(from: summary) : device
+            device.kind == .cpu ? device.updatingCPUStats(from: summary, samples: cpuHistory) : device
         }
     }
 
@@ -344,7 +345,7 @@ private func rotated(_ values: [Double], by offset: Int) -> [Double] {
 }
 
 private extension PerformanceDevice {
-    func updatingCPUStats(from summary: ProcessSummary) -> PerformanceDevice {
+    func updatingCPUStats(from summary: ProcessSummary, samples: [Double]) -> PerformanceDevice {
         guard kind == .cpu else { return self }
 
         let updatedStats = stats.map { stat in
@@ -369,7 +370,7 @@ private extension PerformanceDevice {
             detailTitle: detailTitle,
             detailSubtitle: detailSubtitle,
             color: color,
-            samples: samples,
+            samples: samples.isEmpty ? [0] : samples,
             stats: updatedStats
         )
     }
