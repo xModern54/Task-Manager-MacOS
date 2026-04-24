@@ -7,6 +7,28 @@ struct SysctlCPUInfoProvider: SystemCPUInfoProviding {
             ?? appleSiliconFallback()
     }
 
+    func processorSpeedText() -> String? {
+        guard let hertz = integerValue(for: "hw.cpufrequency")
+            ?? integerValue(for: "hw.cpufrequency_max"),
+              hertz > 0 else {
+            return nil
+        }
+
+        let gigahertz = Double(hertz) / 1_000_000_000
+        return String(format: "%.2f GHz", gigahertz)
+    }
+
+    func systemBootDate() -> Date? {
+        var bootTime = timeval()
+        var size = MemoryLayout<timeval>.stride
+
+        guard sysctlbyname("kern.boottime", &bootTime, &size, nil, 0) == 0 else {
+            return nil
+        }
+
+        return Date(timeIntervalSince1970: TimeInterval(bootTime.tv_sec))
+    }
+
     private func stringValue(for key: String) -> String? {
         var size = 0
         guard sysctlbyname(key, nil, &size, nil, 0) == 0, size > 1 else {
@@ -21,6 +43,17 @@ struct SysctlCPUInfoProvider: SystemCPUInfoProviding {
         let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
         let value = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? nil : value
+    }
+
+    private func integerValue(for key: String) -> UInt64? {
+        var value: UInt64 = 0
+        var size = MemoryLayout<UInt64>.stride
+
+        guard sysctlbyname(key, &value, &size, nil, 0) == 0 else {
+            return nil
+        }
+
+        return value
     }
 
     private func appleSiliconFallback() -> String? {

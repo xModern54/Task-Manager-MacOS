@@ -6,14 +6,35 @@ struct PerformancePage: View {
 
     @State private var selectedDeviceID = PerformanceDevice.mockDevices[0].id
     @State private var processorName: String?
+    @State private var processorSpeedText: String?
+    @State private var systemBootDate: Date?
     @State private var didLoadProcessorName = false
 
     private let cpuInfoProvider: any SystemCPUInfoProviding = SysctlCPUInfoProvider()
 
     private var devices: [PerformanceDevice] {
         PerformanceDevice.mockDevices.map { device in
-            device.kind == .cpu ? device.updatingCPUStats(from: summary, samples: cpuHistory) : device
+            device.kind == .cpu
+                ? device.updatingCPUStats(
+                    from: summary,
+                    samples: cpuHistory,
+                    speedText: processorSpeedText ?? "--",
+                    uptimeText: uptimeText
+                )
+                : device
         }
+    }
+
+    private var uptimeText: String {
+        guard let systemBootDate else { return "--" }
+
+        let uptimeSeconds = max(Int(Date().timeIntervalSince(systemBootDate)), 0)
+        let days = uptimeSeconds / 86_400
+        let hours = (uptimeSeconds % 86_400) / 3_600
+        let minutes = (uptimeSeconds % 3_600) / 60
+        let seconds = uptimeSeconds % 60
+
+        return String(format: "%d:%02d:%02d:%02d", days, hours, minutes, seconds)
     }
 
     private var selectedDevice: PerformanceDevice {
@@ -41,6 +62,8 @@ struct PerformancePage: View {
             guard !didLoadProcessorName else { return }
             didLoadProcessorName = true
             processorName = cpuInfoProvider.processorName()
+            processorSpeedText = cpuInfoProvider.processorSpeedText()
+            systemBootDate = cpuInfoProvider.systemBootDate()
         }
     }
 }
@@ -345,7 +368,12 @@ private func rotated(_ values: [Double], by offset: Int) -> [Double] {
 }
 
 private extension PerformanceDevice {
-    func updatingCPUStats(from summary: ProcessSummary, samples: [Double]) -> PerformanceDevice {
+    func updatingCPUStats(
+        from summary: ProcessSummary,
+        samples: [Double],
+        speedText: String,
+        uptimeText: String
+    ) -> PerformanceDevice {
         guard kind == .cpu else { return self }
 
         let updatedStats = stats.map { stat in
@@ -356,6 +384,10 @@ private extension PerformanceDevice {
                 PerformanceStat(label: stat.label, value: "\(summary.processCount)")
             case "Threads":
                 PerformanceStat(label: stat.label, value: "\(summary.threadCount)")
+            case "Speed":
+                PerformanceStat(label: stat.label, value: speedText)
+            case "Up time":
+                PerformanceStat(label: stat.label, value: uptimeText)
             default:
                 stat
             }
@@ -366,7 +398,7 @@ private extension PerformanceDevice {
             kind: kind,
             title: title,
             subtitle: subtitle,
-            valueText: "\(summary.cpu)% 5.03 GHz",
+            valueText: "\(summary.cpu)% \(speedText)",
             detailTitle: detailTitle,
             detailSubtitle: detailSubtitle,
             color: color,

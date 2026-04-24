@@ -36,7 +36,6 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Speed", value: "5.03 GHz"),
                 PerformanceStat(label: "Processes", value: "78"),
                 PerformanceStat(label: "Threads", value: "1741"),
-                PerformanceStat(label: "Handles", value: "42203"),
                 PerformanceStat(label: "Up time", value: "0:02:11:47")
             ]
         ),
