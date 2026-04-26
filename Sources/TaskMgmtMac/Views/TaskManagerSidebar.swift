@@ -4,16 +4,21 @@ struct TaskManagerSidebar: View {
     @Binding var selection: TaskManagerSection
     let isExpanded: Bool
 
+    @Namespace private var selectionNamespace
+
     var body: some View {
         VStack(spacing: 0) {
             ForEach(TaskManagerSection.allCases) { section in
                 SidebarRow(
                     section: section,
                     isSelected: selection == section,
-                    isExpanded: isExpanded
+                    isExpanded: isExpanded,
+                    selectionNamespace: selectionNamespace
                 )
                 .onTapGesture {
-                    selection = section
+                    withAnimation(.interpolatingSpring(stiffness: 320, damping: 30)) {
+                        selection = section
+                    }
                 }
             }
 
@@ -31,6 +36,7 @@ private struct SidebarRow: View {
     let section: TaskManagerSection
     let isSelected: Bool
     let isExpanded: Bool
+    let selectionNamespace: Namespace.ID
 
     var body: some View {
         HStack(spacing: isExpanded ? 18 : 0) {
@@ -40,11 +46,13 @@ private struct SidebarRow: View {
                         .fill(WindowsTaskManagerTheme.accent)
                         .frame(width: 4, height: 22)
                         .offset(x: isExpanded ? -10 : -8)
+                        .matchedGeometryEffect(id: "sidebar-selection-indicator", in: selectionNamespace)
                 }
 
                 Image(systemName: section.iconSystemName)
                     .taskManagerFont(18)
                     .frame(width: 22)
+                    .scaleEffect(isSelected ? 1.04 : 1)
             }
 
             if isExpanded {
@@ -59,8 +67,11 @@ private struct SidebarRow: View {
         .frame(height: 46)
         .frame(maxWidth: .infinity, alignment: isExpanded ? .leading : .center)
         .background {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(isSelected ? WindowsTaskManagerTheme.sidebarSelection : Color.clear)
+            if isSelected {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(WindowsTaskManagerTheme.sidebarSelection)
+                    .matchedGeometryEffect(id: "sidebar-selection-background", in: selectionNamespace)
+            }
         }
         .contentShape(Rectangle())
         .help(section.rawValue)
