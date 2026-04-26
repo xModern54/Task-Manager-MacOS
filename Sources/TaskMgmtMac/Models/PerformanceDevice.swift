@@ -80,20 +80,20 @@ struct PerformanceDevice: Identifiable, Hashable {
         PerformanceDevice(
             id: "ethernet",
             kind: .ethernet,
-            title: "Ethernet",
-            subtitle: "Ethernet",
-            valueText: "S: 0 R: 8.0 Kbps",
-            detailTitle: "Ethernet",
-            detailSubtitle: "Realtek Gaming 2.5GbE Family Controller",
+            title: "Network",
+            subtitle: "--",
+            valueText: "S: 0 bps R: 0 bps",
+            detailTitle: "Network",
+            detailSubtitle: "--",
             color: Color(red: 0.92, green: 0.45, blue: 0.76),
-            samples: [0, 0, 0, 0, 0, 0, 1, 0, 0, 4, 15, 92, 0, 0, 8, 0, 0, 95, 6, 2],
+            samples: Array(repeating: 0, count: 20),
             stats: [
-                PerformanceStat(label: "Send", value: "0 Kbps"),
-                PerformanceStat(label: "Receive", value: "8.0 Kbps"),
-                PerformanceStat(label: "Adapter name", value: "Ethernet"),
-                PerformanceStat(label: "DNS name", value: "lan"),
-                PerformanceStat(label: "Connection type", value: "Ethernet"),
-                PerformanceStat(label: "IPv4 address", value: "192.168.1.219")
+                PerformanceStat(label: "Send", value: "0 bps"),
+                PerformanceStat(label: "Receive", value: "0 bps"),
+                PerformanceStat(label: "Adapter name", value: "--"),
+                PerformanceStat(label: "DNS name", value: "--"),
+                PerformanceStat(label: "Connection type", value: "--"),
+                PerformanceStat(label: "IPv4 address", value: "--")
             ]
         ),
         PerformanceDevice(

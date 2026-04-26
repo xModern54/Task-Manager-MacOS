@@ -9,6 +9,8 @@ struct PerformancePage: View {
     let gpuHistory: [Double]
     let diskSnapshot: SystemDiskSnapshot
     let diskHistory: [Double]
+    let networkSnapshot: SystemNetworkSnapshot
+    let networkHistory: [Double]
     @Binding var selectedDeviceID: PerformanceDevice.ID
 
     @State private var processorName: String?
@@ -44,6 +46,11 @@ struct PerformancePage: View {
                 return device.updatingDiskStats(
                     from: diskSnapshot,
                     samples: diskHistory
+                )
+            } else if device.kind == .ethernet {
+                return device.updatingNetworkStats(
+                    from: networkSnapshot,
+                    samples: networkHistory
                 )
             }
 
@@ -329,7 +336,7 @@ private struct EthernetPerformanceDetail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            LabeledGraph(title: "Throughput", trailing: "500 Kbps", device: device, height: 340, fill: true)
+            LabeledGraph(title: "Throughput", trailing: device.valueText, device: device, height: 340, fill: true)
             StatGrid(stats: device.stats, columns: 2)
         }
     }
@@ -575,6 +582,45 @@ private extension PerformanceDevice {
             ]
         )
     }
+
+    func updatingNetworkStats(
+        from snapshot: SystemNetworkSnapshot,
+        samples: [Double]
+    ) -> PerformanceDevice {
+        guard kind == .ethernet else { return self }
+
+        let updatedStats = stats.map { stat in
+            switch stat.label {
+            case "Send":
+                PerformanceStat(label: stat.label, value: formattedNetworkRate(snapshot.sentBytesPerSecond))
+            case "Receive":
+                PerformanceStat(label: stat.label, value: formattedNetworkRate(snapshot.receivedBytesPerSecond))
+            case "Adapter name":
+                PerformanceStat(label: stat.label, value: snapshot.adapterName)
+            case "DNS name":
+                PerformanceStat(label: stat.label, value: snapshot.dnsName)
+            case "Connection type":
+                PerformanceStat(label: stat.label, value: snapshot.connectionType)
+            case "IPv4 address":
+                PerformanceStat(label: stat.label, value: snapshot.ipv4Address)
+            default:
+                stat
+            }
+        }
+
+        return PerformanceDevice(
+            id: id,
+            kind: kind,
+            title: snapshot.connectionType == "Wi-Fi" ? "Wi-Fi" : title,
+            subtitle: snapshot.interfaceName,
+            valueText: "S: \(formattedNetworkRate(snapshot.sentBytesPerSecond)) R: \(formattedNetworkRate(snapshot.receivedBytesPerSecond))",
+            detailTitle: snapshot.connectionType == "Wi-Fi" ? "Wi-Fi" : detailTitle,
+            detailSubtitle: snapshot.adapterName,
+            color: color,
+            samples: normalizedNetworkSamples(samples),
+            stats: updatedStats
+        )
+    }
 }
 
 private func formattedGigabytes(_ bytes: UInt64) -> String {
@@ -592,6 +638,32 @@ private func formattedBytesPerSecond(_ bytes: UInt64) -> String {
     formatter.countStyle = .file
     formatter.allowedUnits = [.useKB, .useMB, .useGB]
     return "\(formatter.string(fromByteCount: Int64(bytes)))/s"
+}
+
+private func formattedNetworkRate(_ bytesPerSecond: UInt64) -> String {
+    let bitsPerSecond = Double(bytesPerSecond) * 8
+
+    if bitsPerSecond >= 1_000_000_000 {
+        return String(format: "%.1f Gbps", bitsPerSecond / 1_000_000_000)
+    }
+
+    if bitsPerSecond >= 1_000_000 {
+        return String(format: "%.1f Mbps", bitsPerSecond / 1_000_000)
+    }
+
+    if bitsPerSecond >= 1_000 {
+        return String(format: "%.0f Kbps", bitsPerSecond / 1_000)
+    }
+
+    return "\(Int(bitsPerSecond.rounded())) bps"
+}
+
+private func normalizedNetworkSamples(_ samples: [Double]) -> [Double] {
+    guard let maximum = samples.max(), maximum > 0 else {
+        return samples.isEmpty ? [0] : samples
+    }
+
+    return samples.map { min(max($0 / maximum * 100, 0), 100) }
 }
 
 private func formattedMilliseconds(_ milliseconds: Double) -> String {

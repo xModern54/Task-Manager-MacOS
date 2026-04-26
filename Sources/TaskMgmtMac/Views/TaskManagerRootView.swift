@@ -28,6 +28,8 @@ struct TaskManagerRootView: View {
                         gpuHistory: viewModel.gpuHistory,
                         diskSnapshot: viewModel.diskSnapshot,
                         diskHistory: viewModel.diskHistory,
+                        networkSnapshot: viewModel.networkSnapshot,
+                        networkHistory: viewModel.networkHistory,
                         selectedDeviceID: $viewModel.selectedPerformanceDeviceID
                     )
                 }
