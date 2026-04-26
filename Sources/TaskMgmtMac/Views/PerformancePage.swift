@@ -227,35 +227,39 @@ private struct PerformanceDetail: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(device.detailTitle)
-                    .taskManagerFont(28)
-                    .lineLimit(1)
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(device.detailTitle)
+                        .taskManagerFont(28)
+                        .lineLimit(1)
 
-                Spacer()
+                    Spacer()
 
-                Text(detailSubtitle)
-                    .taskManagerFont(13)
-                    .lineLimit(1)
-                    .multilineTextAlignment(.trailing)
+                    Text(detailSubtitle)
+                        .taskManagerFont(13)
+                        .lineLimit(1)
+                        .multilineTextAlignment(.trailing)
+                }
+
+                switch device.kind {
+                case .cpu:
+                    CPUPerformanceDetail(device: device)
+                case .memory:
+                    MemoryPerformanceDetail(device: device)
+                case .disk:
+                    DiskPerformanceDetail(device: device)
+                case .ethernet:
+                    EthernetPerformanceDetail(device: device)
+                case .gpu:
+                    GPUPerformanceDetail(device: device)
+                }
             }
-
-            switch device.kind {
-            case .cpu:
-                CPUPerformanceDetail(device: device)
-            case .memory:
-                MemoryPerformanceDetail(device: device)
-            case .disk:
-                DiskPerformanceDetail(device: device)
-            case .ethernet:
-                EthernetPerformanceDetail(device: device)
-            case .gpu:
-                GPUPerformanceDetail(device: device)
-            }
+            .padding(.top, 16)
+            .padding(.trailing, 14)
+            .padding(.bottom, 18)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
-        .padding(.top, 16)
-        .padding(.trailing, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(WindowsTaskManagerTheme.table)
     }
