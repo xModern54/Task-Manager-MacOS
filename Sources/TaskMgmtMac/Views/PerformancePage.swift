@@ -13,6 +13,8 @@ struct PerformancePage: View {
     let networkHistory: [Double]
     let npuSnapshot: SystemNPUSnapshot
     let npuHistory: [Double]
+    let batterySnapshot: SystemBatterySnapshot
+    let batteryHistory: [Double]
     @Binding var selectedDeviceID: PerformanceDevice.ID
 
     @State private var processorName: String?
@@ -23,7 +25,7 @@ struct PerformancePage: View {
     private let cpuInfoProvider: any SystemCPUInfoProviding = SysctlCPUInfoProvider()
 
     private var devices: [PerformanceDevice] {
-        PerformanceDevice.mockDevices.map { device in
+        PerformanceDevice.mockDevices.compactMap { device in
             if device.kind == .cpu {
                 return device.updatingCPUStats(
                     from: summary,
@@ -58,6 +60,12 @@ struct PerformancePage: View {
                 return device.updatingNPUStats(
                     from: npuSnapshot,
                     samples: npuHistory
+                )
+            } else if device.kind == .battery {
+                guard batterySnapshot.isPresent else { return nil }
+                return device.updatingBatteryStats(
+                    from: batterySnapshot,
+                    samples: batteryHistory
                 )
             }
 
@@ -269,6 +277,8 @@ private struct PerformanceDetail: View {
                     GPUPerformanceDetail(device: device)
                 case .npu:
                     NPUPerformanceDetail(device: device)
+                case .battery:
+                    BatteryPerformanceDetail(device: device)
                 }
             }
             .padding(.top, 16)
@@ -369,6 +379,17 @@ private struct NPUPerformanceDetail: View {
         VStack(alignment: .leading, spacing: 8) {
             LabeledGraph(title: "% Utilization", trailing: device.valueText, device: device, height: 340, fill: true)
             StatGrid(stats: device.stats, columns: 3)
+        }
+    }
+}
+
+private struct BatteryPerformanceDetail: View {
+    let device: PerformanceDevice
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabeledGraph(title: "Battery level", trailing: "100%", device: device, height: 340, fill: true)
+            StatGrid(stats: device.stats, columns: 2)
         }
     }
 }
@@ -687,6 +708,66 @@ private extension PerformanceDevice {
             ]
         )
     }
+
+    func updatingBatteryStats(
+        from snapshot: SystemBatterySnapshot,
+        samples: [Double]
+    ) -> PerformanceDevice {
+        guard kind == .battery else { return self }
+
+        let adapterText: String
+        if let adapterWatts = snapshot.adapterWatts {
+            adapterText = "\(snapshot.adapterName) (\(adapterWatts) W)"
+        } else {
+            adapterText = snapshot.adapterName
+        }
+
+        let updatedStats = stats.map { stat in
+            switch stat.label {
+            case "Power source":
+                PerformanceStat(label: stat.label, value: snapshot.powerSource)
+            case "Technology":
+                PerformanceStat(label: stat.label, value: snapshot.technology)
+            case "Temperature":
+                PerformanceStat(label: stat.label, value: formattedTemperature(snapshot.temperatureCelsius))
+            case "Voltage":
+                PerformanceStat(label: stat.label, value: formattedVolts(snapshot.voltageVolts))
+            case "Current now":
+                PerformanceStat(label: stat.label, value: formattedMilliamps(snapshot.currentMilliamps))
+            case "Power now":
+                PerformanceStat(label: stat.label, value: formattedWatts(snapshot.powerWatts))
+            case "Charge type":
+                PerformanceStat(label: stat.label, value: snapshot.chargeType)
+            case "Cycles":
+                PerformanceStat(label: stat.label, value: snapshot.cycleCount.map(String.init) ?? "--")
+            case "Current charge":
+                PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.currentChargeMilliampHours))
+            case "Max charge":
+                PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.maxChargeMilliampHours))
+            case "Level":
+                PerformanceStat(label: stat.label, value: "\(snapshot.levelPercent)%")
+            case "Time to full":
+                PerformanceStat(label: stat.label, value: formattedMinutes(snapshot.timeToFullMinutes))
+            case "Adapter":
+                PerformanceStat(label: stat.label, value: adapterText)
+            default:
+                stat
+            }
+        }
+
+        return PerformanceDevice(
+            id: id,
+            kind: kind,
+            title: title,
+            subtitle: snapshot.chargeState,
+            valueText: "\(snapshot.levelPercent)%",
+            detailTitle: detailTitle,
+            detailSubtitle: snapshot.name,
+            color: color,
+            samples: samples.isEmpty ? [Double(snapshot.levelPercent)] : samples,
+            stats: updatedStats
+        )
+    }
 }
 
 private func formattedGigabytes(_ bytes: UInt64) -> String {
@@ -738,4 +819,39 @@ private func formattedMilliseconds(_ milliseconds: Double) -> String {
     }
 
     return "\(Int(milliseconds.rounded())) ms"
+}
+
+private func formattedTemperature(_ celsius: Double?) -> String {
+    guard let celsius else { return "--" }
+    return String(format: "%.1f C", celsius)
+}
+
+private func formattedVolts(_ volts: Double?) -> String {
+    guard let volts else { return "--" }
+    return String(format: "%.3f V", volts)
+}
+
+private func formattedMilliamps(_ milliamps: Int?) -> String {
+    guard let milliamps else { return "--" }
+    return "\(milliamps) mA"
+}
+
+private func formattedWatts(_ watts: Double?) -> String {
+    guard let watts else { return "--" }
+    return String(format: "%.2f W", watts)
+}
+
+private func formattedMilliampHours(_ milliampHours: Int?) -> String {
+    guard let milliampHours else { return "--" }
+    return "\(milliampHours) mAh"
+}
+
+private func formattedMinutes(_ minutes: Int?) -> String {
+    guard let minutes else { return "--" }
+
+    if minutes < 60 {
+        return "\(minutes) min"
+    }
+
+    return String(format: "%d h %02d min", minutes / 60, minutes % 60)
 }

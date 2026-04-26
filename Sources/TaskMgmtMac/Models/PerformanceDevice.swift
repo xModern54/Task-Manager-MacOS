@@ -8,6 +8,7 @@ struct PerformanceDevice: Identifiable, Hashable {
         case ethernet
         case gpu
         case npu
+        case battery
     }
 
     let id: String
@@ -76,6 +77,33 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Write speed", value: "0 KB/s"),
                 PerformanceStat(label: "Capacity", value: "--"),
                 PerformanceStat(label: "Type", value: "SSD")
+            ]
+        ),
+        PerformanceDevice(
+            id: "battery0",
+            kind: .battery,
+            title: "Battery",
+            subtitle: "Internal battery",
+            valueText: "--",
+            detailTitle: "Battery",
+            detailSubtitle: "Internal battery",
+            color: Color(red: 0.86, green: 0.63, blue: 0.20),
+            samples: Array(repeating: 0, count: 20),
+            stats: [
+                PerformanceStat(label: "Type", value: "Battery"),
+                PerformanceStat(label: "Power source", value: "--"),
+                PerformanceStat(label: "Technology", value: "Li-ion"),
+                PerformanceStat(label: "Temperature", value: "--"),
+                PerformanceStat(label: "Voltage", value: "--"),
+                PerformanceStat(label: "Current now", value: "--"),
+                PerformanceStat(label: "Power now", value: "--"),
+                PerformanceStat(label: "Charge type", value: "--"),
+                PerformanceStat(label: "Cycles", value: "--"),
+                PerformanceStat(label: "Current charge", value: "--"),
+                PerformanceStat(label: "Max charge", value: "--"),
+                PerformanceStat(label: "Level", value: "--"),
+                PerformanceStat(label: "Time to full", value: "--"),
+                PerformanceStat(label: "Adapter", value: "--")
             ]
         ),
         PerformanceDevice(

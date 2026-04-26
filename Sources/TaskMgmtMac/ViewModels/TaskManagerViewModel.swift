@@ -22,6 +22,8 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var networkSnapshot = SystemNetworkSnapshot.unavailable
     @Published private(set) var npuHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var npuSnapshot = SystemNPUSnapshot.unavailable
+    @Published private(set) var batteryHistory = Array(repeating: 0.0, count: 60)
+    @Published private(set) var batterySnapshot = SystemBatterySnapshot.unavailable
     @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
 
     private let historyLimit = 60
@@ -31,19 +33,22 @@ final class TaskManagerViewModel: ObservableObject {
     private let diskInfoProvider: any SystemDiskInfoProviding
     private let networkInfoProvider: any SystemNetworkInfoProviding
     private let npuInfoProvider: any SystemNPUInfoProviding
+    private let batteryInfoProvider: any SystemBatteryInfoProviding
 
     init(
         monitor: ProcessMonitoringProviding,
         gpuInfoProvider: SystemGPUInfoProviding = IOKitSystemGPUInfoProvider(),
         diskInfoProvider: SystemDiskInfoProviding = IOKitSystemDiskInfoProvider(),
         networkInfoProvider: SystemNetworkInfoProviding = SystemConfigurationNetworkInfoProvider(),
-        npuInfoProvider: SystemNPUInfoProviding = CoreMLSystemNPUInfoProvider()
+        npuInfoProvider: SystemNPUInfoProviding = CoreMLSystemNPUInfoProvider(),
+        batteryInfoProvider: SystemBatteryInfoProviding = IOKitSystemBatteryInfoProvider()
     ) {
         self.monitor = monitor
         self.gpuInfoProvider = gpuInfoProvider
         self.diskInfoProvider = diskInfoProvider
         self.networkInfoProvider = networkInfoProvider
         self.npuInfoProvider = npuInfoProvider
+        self.batteryInfoProvider = batteryInfoProvider
     }
 
     var visibleProcesses: [ProcessMetric] {
@@ -85,12 +90,16 @@ final class TaskManagerViewModel: ObservableObject {
         async let currentNPUSnapshot = shouldCollectPerformanceSamples
             ? npuInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "npu0")
             : SystemNPUSnapshot.unavailable
+        async let currentBatterySnapshot = shouldCollectPerformanceSamples
+            ? batteryInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "battery0")
+            : SystemBatterySnapshot.unavailable
 
         let nextSnapshot = await monitoredSnapshot
         let nextGPUSnapshot = await currentGPUSnapshot
         let nextDiskSnapshot = await currentDiskSnapshot
         let nextNetworkSnapshot = await currentNetworkSnapshot
         let nextNPUSnapshot = await currentNPUSnapshot
+        let nextBatterySnapshot = await currentBatterySnapshot
 
         snapshot = nextSnapshot
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
@@ -101,10 +110,12 @@ final class TaskManagerViewModel: ObservableObject {
             diskSnapshot = nextDiskSnapshot
             networkSnapshot = nextNetworkSnapshot
             npuSnapshot = nextNPUSnapshot
+            batterySnapshot = nextBatterySnapshot
             appendGPUHistoryValue(Double(nextGPUSnapshot.usagePercent))
             appendDiskHistoryValue(Double(nextDiskSnapshot.activePercent))
             appendNetworkHistoryValue(Double(nextNetworkSnapshot.throughputBytesPerSecond))
             appendNPUHistoryValue(Double(nextNPUSnapshot.usagePercent ?? 0))
+            appendBatteryHistoryValue(Double(nextBatterySnapshot.levelPercent))
         }
 
         if shouldCollectProcessList,
@@ -184,6 +195,14 @@ final class TaskManagerViewModel: ObservableObject {
 
         if npuHistory.count > historyLimit {
             npuHistory.removeFirst(npuHistory.count - historyLimit)
+        }
+    }
+
+    private func appendBatteryHistoryValue(_ value: Double) {
+        batteryHistory.append(value)
+
+        if batteryHistory.count > historyLimit {
+            batteryHistory.removeFirst(batteryHistory.count - historyLimit)
         }
     }
 }
