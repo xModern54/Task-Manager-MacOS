@@ -7,7 +7,7 @@ EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMac"
 HELPER_EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
 HELPER_PLIST_SOURCE="$ROOT_DIR/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 PLIST="$APP_DIR/Contents/Info.plist"
-HELPER_CODESIGN_ID="com.xmodern.TaskMgmtMac"
+HELPER_CODESIGN_ID="com.xmodern.TaskMgmtMac.PrivilegedSensorHelper"
 
 codesign_identity() {
   if [ -n "${TASKMGMT_CODESIGN_IDENTITY:-}" ]; then

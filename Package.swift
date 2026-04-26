@@ -18,7 +18,15 @@ let package = Package(
         ),
         .executableTarget(
             name: "TaskMgmtMacPrivilegedSensorHelper",
-            path: "Sources/TaskMgmtMacPrivilegedSensorHelper"
+            path: "Sources/TaskMgmtMacPrivilegedSensorHelper",
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Resources/PrivilegedSensorHelperInfo.plist"
+                ])
+            ]
         )
     ]
 )
