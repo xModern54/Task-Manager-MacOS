@@ -27,9 +27,8 @@ pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Library/LaunchDaemons"
-mkdir -p "$APP_DIR/Contents/Library/LaunchServices"
 cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMac"
-cp "$HELPER_EXECUTABLE" "$APP_DIR/Contents/Library/LaunchServices/TaskMgmtMacPrivilegedSensorHelper"
+cp "$HELPER_EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
 cp "$HELPER_PLIST_SOURCE" "$APP_DIR/Contents/Library/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 
 plutil -create xml1 "$PLIST"
@@ -50,7 +49,7 @@ if [ -z "$SIGN_IDENTITY" ]; then
   SIGN_IDENTITY="-"
 fi
 
-codesign --force --sign "$SIGN_IDENTITY" --identifier "$HELPER_BUNDLE_ID" "$APP_DIR/Contents/Library/LaunchServices/TaskMgmtMacPrivilegedSensorHelper"
+codesign --force --sign "$SIGN_IDENTITY" --identifier "$HELPER_BUNDLE_ID" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
 codesign --force --sign "$SIGN_IDENTITY" "$APP_DIR"
 
 open "$APP_DIR"

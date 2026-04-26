@@ -32,7 +32,6 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
     private let client: PrivilegedSensorHelperClient
     private var cachedSnapshot = SystemPrivilegedCPUSensorSnapshot.unavailable
     private var didAttemptRegistration = false
-    private var didAttemptRegistrationRepair = false
     private var lastSampleDate: Date?
 
     private let minimumSampleInterval: TimeInterval = 5
@@ -94,53 +93,9 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
             cachedSnapshot = parsedSnapshot
             lastSampleDate = Date()
         } catch {
-            if let repairedSnapshot = await repairRegistrationAndRetry(after: error) {
-                return repairedSnapshot
-            }
-
             let currentStatus = client.status
             cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
                 helperStatus: statusDescription(currentStatus),
-                averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
-                performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
-                efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
-                temperatureCelsius: cachedSnapshot.temperatureCelsius,
-                thermalPressure: cachedSnapshot.thermalPressure,
-                lastError: error.localizedDescription
-            )
-        }
-
-        return cachedSnapshot
-    }
-
-    private func repairRegistrationAndRetry(after error: Error) async -> SystemPrivilegedCPUSensorSnapshot? {
-        guard !didAttemptRegistrationRepair else {
-            return nil
-        }
-
-        guard error.isPrivilegedHelperXPCError else {
-            return nil
-        }
-
-        let status = client.status
-        guard status == .enabled || status == .requiresApproval else {
-            return nil
-        }
-
-        didAttemptRegistrationRepair = true
-
-        do {
-            try await client.unregister()
-            try client.register()
-
-            let output = try client.cpuPowerSnapshot()
-            var parsedSnapshot = PowermetricsCPUSensorParser.snapshot(from: output)
-            parsedSnapshot.helperStatus = statusDescription(client.status)
-            cachedSnapshot = parsedSnapshot
-            lastSampleDate = Date()
-        } catch {
-            cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
-                helperStatus: statusDescription(client.status),
                 averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
                 performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
                 efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
@@ -166,20 +121,6 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
         @unknown default:
             "Unknown"
         }
-    }
-}
-
-private extension Error {
-    var isPrivilegedHelperXPCError: Bool {
-        guard let error = self as? PrivilegedSensorHelperError else {
-            return false
-        }
-
-        if case .xpc = error {
-            return true
-        }
-
-        return false
     }
 }
 
