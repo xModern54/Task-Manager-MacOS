@@ -50,7 +50,7 @@ if [ -z "$SIGN_IDENTITY" ]; then
   SIGN_IDENTITY="-"
 fi
 
-codesign --force --sign "$SIGN_IDENTITY" --identifier "$HELPER_CODESIGN_ID" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
-codesign --force --sign "$SIGN_IDENTITY" "$APP_DIR"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" --identifier "$HELPER_CODESIGN_ID" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$APP_DIR"
 
 open "$APP_DIR"
