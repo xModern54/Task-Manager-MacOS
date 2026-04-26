@@ -9,7 +9,7 @@
         <string>com.xmodern.TaskMgmtMac</string>
     </array>
     <key>BundleProgram</key>
-    <string>Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper</string>
+    <string>Contents/Library/LaunchServices/TaskMgmtMacPrivilegedSensorHelper</string>
     <key>MachServices</key>
     <dict>
         <key>com.xmodern.TaskMgmtMac.PrivilegedSensorHelper</key>

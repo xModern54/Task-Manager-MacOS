@@ -45,16 +45,16 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
             return cachedSnapshot
         }
 
-        let status = client.status
-        if status != .enabled {
-            if !didAttemptRegistration {
-                didAttemptRegistration = true
+        if !didAttemptRegistration {
+            didAttemptRegistration = true
 
-                do {
-                    try client.register()
-                } catch {
+            do {
+                try client.register()
+            } catch {
+                let currentStatus = client.status
+                if currentStatus != .enabled && currentStatus != .requiresApproval {
                     cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
-                        helperStatus: statusDescription(client.status),
+                        helperStatus: statusDescription(currentStatus),
                         averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
                         performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
                         efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
@@ -65,20 +65,20 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
                     return cachedSnapshot
                 }
             }
+        }
 
-            let currentStatus = client.status
-            if currentStatus != .requiresApproval {
-                cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
-                    helperStatus: statusDescription(currentStatus),
-                    averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
-                    performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
-                    efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
-                    temperatureCelsius: cachedSnapshot.temperatureCelsius,
-                    thermalPressure: cachedSnapshot.thermalPressure,
-                    lastError: nil
-                )
-                return cachedSnapshot
-            }
+        let status = client.status
+        if status != .enabled && status != .requiresApproval {
+            cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
+                helperStatus: statusDescription(status),
+                averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
+                performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
+                efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
+                temperatureCelsius: cachedSnapshot.temperatureCelsius,
+                thermalPressure: cachedSnapshot.thermalPressure,
+                lastError: nil
+            )
+            return cachedSnapshot
         }
 
         if let lastSampleDate,
