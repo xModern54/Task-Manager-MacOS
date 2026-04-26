@@ -83,7 +83,7 @@ if [ -z "$sign_identity" ]; then
 fi
 
 run_quietly "codesign helper" codesign --force --sign "$sign_identity" --identifier "$helper_bundle_id" "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
-run_quietly "codesign app" codesign --force --sign "$sign_identity" --deep "$app_dir"
+run_quietly "codesign app" codesign --force --sign "$sign_identity" "$app_dir"
 
 open "$app_dir"
 

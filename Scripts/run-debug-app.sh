@@ -50,6 +50,6 @@ if [ -z "$SIGN_IDENTITY" ]; then
 fi
 
 codesign --force --sign "$SIGN_IDENTITY" --identifier "$HELPER_BUNDLE_ID" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
-codesign --force --sign "$SIGN_IDENTITY" --deep "$APP_DIR"
+codesign --force --sign "$SIGN_IDENTITY" "$APP_DIR"
 
 open "$APP_DIR"
