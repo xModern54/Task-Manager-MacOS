@@ -24,7 +24,6 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var npuSnapshot = SystemNPUSnapshot.unavailable
     @Published private(set) var batteryHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var batterySnapshot = SystemBatterySnapshot.unavailable
-    @Published private(set) var privilegedCPUSensorSnapshot = SystemPrivilegedCPUSensorSnapshot.unavailable
     @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
 
     private let historyLimit = 60
@@ -35,7 +34,6 @@ final class TaskManagerViewModel: ObservableObject {
     private let networkInfoProvider: any SystemNetworkInfoProviding
     private let npuInfoProvider: any SystemNPUInfoProviding
     private let batteryInfoProvider: any SystemBatteryInfoProviding
-    private let privilegedCPUSensorProvider: any SystemPrivilegedCPUSensorProviding
 
     init(
         monitor: ProcessMonitoringProviding,
@@ -43,8 +41,7 @@ final class TaskManagerViewModel: ObservableObject {
         diskInfoProvider: SystemDiskInfoProviding = IOKitSystemDiskInfoProvider(),
         networkInfoProvider: SystemNetworkInfoProviding = SystemConfigurationNetworkInfoProvider(),
         npuInfoProvider: SystemNPUInfoProviding = CoreMLSystemNPUInfoProvider(),
-        batteryInfoProvider: SystemBatteryInfoProviding = IOKitSystemBatteryInfoProvider(),
-        privilegedCPUSensorProvider: SystemPrivilegedCPUSensorProviding = SMAppServicePrivilegedCPUSensorProvider()
+        batteryInfoProvider: SystemBatteryInfoProviding = IOKitSystemBatteryInfoProvider()
     ) {
         self.monitor = monitor
         self.gpuInfoProvider = gpuInfoProvider
@@ -52,7 +49,6 @@ final class TaskManagerViewModel: ObservableObject {
         self.networkInfoProvider = networkInfoProvider
         self.npuInfoProvider = npuInfoProvider
         self.batteryInfoProvider = batteryInfoProvider
-        self.privilegedCPUSensorProvider = privilegedCPUSensorProvider
     }
 
     var visibleProcesses: [ProcessMetric] {
@@ -80,8 +76,6 @@ final class TaskManagerViewModel: ObservableObject {
         let shouldCollectProcessList = selectedSection == .processes
             || (selectedSection == .devices && selectedPerformanceDeviceID == "cpu")
         let shouldCollectPerformanceSamples = selectedSection == .devices
-        let shouldCollectPrivilegedCPUSensors = selectedSection == .devices
-            && selectedPerformanceDeviceID == "cpu"
 
         async let monitoredSnapshot = monitor.currentSnapshot(includesProcesses: shouldCollectProcessList)
         async let currentGPUSnapshot = shouldCollectPerformanceSamples
@@ -99,9 +93,6 @@ final class TaskManagerViewModel: ObservableObject {
         async let currentBatterySnapshot = shouldCollectPerformanceSamples
             ? batteryInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "battery0")
             : SystemBatterySnapshot.unavailable
-        async let currentPrivilegedCPUSensorSnapshot = shouldCollectPrivilegedCPUSensors
-            ? privilegedCPUSensorProvider.snapshot(includeDetails: true)
-            : privilegedCPUSensorProvider.snapshot(includeDetails: false)
 
         let nextSnapshot = await monitoredSnapshot
         let nextGPUSnapshot = await currentGPUSnapshot
@@ -109,7 +100,6 @@ final class TaskManagerViewModel: ObservableObject {
         let nextNetworkSnapshot = await currentNetworkSnapshot
         let nextNPUSnapshot = await currentNPUSnapshot
         let nextBatterySnapshot = await currentBatterySnapshot
-        let nextPrivilegedCPUSensorSnapshot = await currentPrivilegedCPUSensorSnapshot
 
         snapshot = nextSnapshot
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
@@ -121,7 +111,6 @@ final class TaskManagerViewModel: ObservableObject {
             networkSnapshot = nextNetworkSnapshot
             npuSnapshot = nextNPUSnapshot
             batterySnapshot = nextBatterySnapshot
-            privilegedCPUSensorSnapshot = nextPrivilegedCPUSensorSnapshot
             appendGPUHistoryValue(Double(nextGPUSnapshot.usagePercent))
             appendDiskHistoryValue(Double(nextDiskSnapshot.activePercent))
             appendNetworkHistoryValue(Double(nextNetworkSnapshot.throughputBytesPerSecond))

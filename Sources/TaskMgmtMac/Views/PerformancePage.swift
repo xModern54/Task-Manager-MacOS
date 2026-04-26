@@ -1,5 +1,4 @@
 import Foundation
-import ServiceManagement
 import SwiftUI
 
 struct PerformancePage: View {
@@ -16,7 +15,6 @@ struct PerformancePage: View {
     let npuHistory: [Double]
     let batterySnapshot: SystemBatterySnapshot
     let batteryHistory: [Double]
-    let privilegedCPUSensorSnapshot: SystemPrivilegedCPUSensorSnapshot
     @Binding var selectedDeviceID: PerformanceDevice.ID
 
     @State private var processorName: String?
@@ -32,8 +30,7 @@ struct PerformancePage: View {
                 return device.updatingCPUStats(
                     from: summary,
                     samples: cpuHistory,
-                    speedText: privilegedCPUSensorSnapshot.speedText ?? processorSpeedText ?? "--",
-                    privilegedSensorSnapshot: privilegedCPUSensorSnapshot,
+                    speedText: processorSpeedText ?? "--",
                     uptimeText: uptimeText
                 )
             } else if device.kind == .memory {
@@ -297,14 +294,6 @@ private struct PerformanceDetail: View {
 private struct CPUPerformanceDetail: View {
     let device: PerformanceDevice
 
-    private var shouldShowAdvancedSensorApprovalButton: Bool {
-        guard let status = device.stats.first(where: { $0.label == "Advanced sensors" })?.value else {
-            return false
-        }
-
-        return status == "Requires approval" || status == "Not registered" || status == "Not found"
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("% Utilization over 60 seconds")
@@ -316,26 +305,6 @@ private struct CPUPerformanceDetail: View {
                     PerformanceGraphView(samples: rotated(device.samples, by: index), color: device.color)
                         .frame(height: 58)
                 }
-            }
-
-            if shouldShowAdvancedSensorApprovalButton {
-                Button {
-                    SMAppService.openSystemSettingsLoginItems()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "slider.horizontal.3")
-                            .taskManagerFont(13, weight: .semibold)
-
-                        Text("Allow advanced sensors")
-                            .taskManagerFont(13, weight: .semibold)
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
-                    .background(WindowsTaskManagerTheme.sidebarSelection)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
             }
 
             StatGrid(stats: device.stats, columns: 3)
@@ -491,7 +460,6 @@ private extension PerformanceDevice {
         from summary: ProcessSummary,
         samples: [Double],
         speedText: String,
-        privilegedSensorSnapshot: SystemPrivilegedCPUSensorSnapshot,
         uptimeText: String
     ) -> PerformanceDevice {
         guard kind == .cpu else { return self }
@@ -513,15 +481,6 @@ private extension PerformanceDevice {
             }
         }
 
-        let advancedStats = [
-            PerformanceStat(label: "P-core speed", value: privilegedSensorSnapshot.performanceFrequencyMHz.map { formatFrequency($0) } ?? "--"),
-            PerformanceStat(label: "E-core speed", value: privilegedSensorSnapshot.efficiencyFrequencyMHz.map { formatFrequency($0) } ?? "--"),
-            PerformanceStat(label: "Temperature", value: formattedTemperature(privilegedSensorSnapshot.temperatureCelsius)),
-            PerformanceStat(label: "Thermal pressure", value: privilegedSensorSnapshot.thermalPressure),
-            PerformanceStat(label: "Advanced sensors", value: privilegedSensorSnapshot.helperStatus),
-            PerformanceStat(label: "Sensor error", value: privilegedSensorSnapshot.lastError ?? "--")
-        ]
-
         return PerformanceDevice(
             id: id,
             kind: kind,
@@ -532,7 +491,7 @@ private extension PerformanceDevice {
             detailSubtitle: detailSubtitle,
             color: color,
             samples: samples.isEmpty ? [0] : samples,
-            stats: updatedStats + advancedStats
+            stats: updatedStats
         )
     }
 

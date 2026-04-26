@@ -9,12 +9,9 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-app_dir="${TASKMGMT_APP_DIR:-/Users/Shared/TaskMgmtMac.app}"
+app_dir="$repo_root/.build/debug/TaskMgmtMac.app"
 executable="$repo_root/.build/debug/TaskMgmtMac"
-helper_executable="$repo_root/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
-helper_plist_source="$repo_root/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 plist="$app_dir/Contents/Info.plist"
-helper_codesign_id="com.xmodern.TaskMgmtMac.PrivilegedSensorHelper"
 remote_name="${GIT_REMOTE_NAME:-origin}"
 remote_url="${GIT_REMOTE_URL:-https://github.com/xModern54/Task-Manager-MacOS.git}"
 push_delay_seconds="${GIT_PUSH_DELAY_SECONDS:-1}"
@@ -58,12 +55,8 @@ run_quietly "swift build" swift build
 echo "==> restart TaskMgmtMac"
 pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$app_dir"
-mkdir -p "$(dirname "$app_dir")"
 mkdir -p "$app_dir/Contents/MacOS"
-mkdir -p "$app_dir/Contents/Library/LaunchDaemons"
 cp "$executable" "$app_dir/Contents/MacOS/TaskMgmtMac"
-cp "$helper_executable" "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
-cp "$helper_plist_source" "$app_dir/Contents/Library/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 
 plutil -create xml1 "$plist" >/dev/null
 /usr/libexec/PlistBuddy \
@@ -79,11 +72,9 @@ plutil -create xml1 "$plist" >/dev/null
 sign_identity="$(codesign_identity)"
 if [ -z "$sign_identity" ]; then
     echo "Warning: no Apple Development/Developer ID signing identity found; using ad-hoc signing."
-    echo "         The privileged helper will build, but macOS will block it until the app is signed with a Team ID."
     sign_identity="-"
 fi
 
-run_quietly "codesign helper" codesign --force --options runtime --sign "$sign_identity" --identifier "$helper_codesign_id" "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
 run_quietly "codesign app" codesign --force --options runtime --sign "$sign_identity" "$app_dir"
 
 open "$app_dir"

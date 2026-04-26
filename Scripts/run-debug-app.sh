@@ -2,12 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="${TASKMGMT_APP_DIR:-/Users/Shared/TaskMgmtMac.app}"
+APP_DIR="$ROOT_DIR/.build/debug/TaskMgmtMac.app"
 EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMac"
-HELPER_EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
-HELPER_PLIST_SOURCE="$ROOT_DIR/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 PLIST="$APP_DIR/Contents/Info.plist"
-HELPER_CODESIGN_ID="com.xmodern.TaskMgmtMac.PrivilegedSensorHelper"
 
 codesign_identity() {
   if [ -n "${TASKMGMT_CODESIGN_IDENTITY:-}" ]; then
@@ -25,12 +22,8 @@ swift build
 pkill -x TaskMgmtMac 2>/dev/null || true
 
 rm -rf "$APP_DIR"
-mkdir -p "$(dirname "$APP_DIR")"
 mkdir -p "$APP_DIR/Contents/MacOS"
-mkdir -p "$APP_DIR/Contents/Library/LaunchDaemons"
 cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMac"
-cp "$HELPER_EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
-cp "$HELPER_PLIST_SOURCE" "$APP_DIR/Contents/Library/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 
 plutil -create xml1 "$PLIST"
 /usr/libexec/PlistBuddy \
@@ -45,12 +38,10 @@ plutil -create xml1 "$PLIST"
 
 SIGN_IDENTITY="$(codesign_identity)"
 if [ -z "$SIGN_IDENTITY" ]; then
-  echo "Warning: no Apple Development/Developer ID signing identity found; using ad-hoc signing."
-  echo "         The privileged helper will build, but macOS will block it until the app is signed with a Team ID."
-  SIGN_IDENTITY="-"
+    echo "Warning: no Apple Development/Developer ID signing identity found; using ad-hoc signing."
+    SIGN_IDENTITY="-"
 fi
 
-codesign --force --options runtime --sign "$SIGN_IDENTITY" --identifier "$HELPER_CODESIGN_ID" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
 codesign --force --options runtime --sign "$SIGN_IDENTITY" "$APP_DIR"
 
 open "$APP_DIR"
