@@ -3,6 +3,7 @@ import Foundation
 
 enum RootLaunchManager {
     static let probeArgument = "--taskmgmt-root-launch-probe"
+    static let sudoersRulePath = "/etc/sudoers.d/taskmgmtmac-root-launch"
 
     static var isRunningAsRoot: Bool {
         geteuid() == 0
@@ -19,7 +20,11 @@ enum RootLaunchManager {
     }
 
     static func canRelaunchWithoutPassword() async -> Bool {
-        await runAndWait(
+        guard FileManager.default.fileExists(atPath: sudoersRulePath) else {
+            return false
+        }
+
+        return await runAndWait(
             launchPath: "/usr/bin/sudo",
             arguments: ["-n", executablePath, probeArgument]
         ) == 0
@@ -36,7 +41,6 @@ enum RootLaunchManager {
 
     static func installRootLaunchRule() async throws {
         let username = NSUserName()
-        let rulePath = "/etc/sudoers.d/taskmgmtmac-root-launch"
         let sudoersRule = """
         # Allows TaskMgmtMac to relaunch itself as root without storing an administrator password.
         \(sudoersEscape(username)) ALL=(root) NOPASSWD: \(sudoersEscape(executablePath))
@@ -51,7 +55,7 @@ enum RootLaunchManager {
         /usr/sbin/chown root:wheel "$tmp"
         /bin/chmod 440 "$tmp"
         /usr/sbin/visudo -cf "$tmp" >/dev/null
-        /bin/mv "$tmp" "\(shellEscape(rulePath))"
+        /bin/mv "$tmp" "\(shellEscape(sudoersRulePath))"
         """
 
         let appleScript = """
