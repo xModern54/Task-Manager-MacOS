@@ -9,7 +9,7 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-app_dir="$repo_root/.build/debug/TaskMgmtMac.app"
+app_dir="${TASKMGMT_APP_DIR:-/Users/Shared/TaskMgmtMac.app}"
 executable="$repo_root/.build/debug/TaskMgmtMac"
 helper_executable="$repo_root/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
 helper_plist_source="$repo_root/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
@@ -58,6 +58,7 @@ run_quietly "swift build" swift build
 echo "==> restart TaskMgmtMac"
 pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$app_dir"
+mkdir -p "$(dirname "$app_dir")"
 mkdir -p "$app_dir/Contents/MacOS"
 mkdir -p "$app_dir/Contents/Library/LaunchDaemons"
 cp "$executable" "$app_dir/Contents/MacOS/TaskMgmtMac"

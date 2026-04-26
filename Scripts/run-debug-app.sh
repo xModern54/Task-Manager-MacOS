@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/.build/debug/TaskMgmtMac.app"
+APP_DIR="${TASKMGMT_APP_DIR:-/Users/Shared/TaskMgmtMac.app}"
 EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMac"
 HELPER_EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
 HELPER_PLIST_SOURCE="$ROOT_DIR/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
@@ -25,6 +25,7 @@ swift build
 pkill -x TaskMgmtMac 2>/dev/null || true
 
 rm -rf "$APP_DIR"
+mkdir -p "$(dirname "$APP_DIR")"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Library/LaunchDaemons"
 cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMac"
