@@ -49,7 +49,7 @@ struct ProcessesPage: View {
         .sheet(isPresented: $isRunNewTaskPresented) {
             RunNewTaskDialog()
         }
-        .alert("End task?", isPresented: $isEndTaskConfirmationPresented) {
+        .alert(endTaskPromptTitle, isPresented: $isEndTaskConfirmationPresented) {
             Button("End task", role: .destructive) {
                 let result = viewModel.terminateSelectedProcess()
                 guard !result.isSuccess else { return }
@@ -59,7 +59,7 @@ struct ProcessesPage: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             if let selectedProcess = viewModel.selectedProcess {
-                Text("End \(selectedProcess.name) (\(selectedProcess.pid))?")
+                Text("This will send a terminate signal to \(selectedProcess.name). PID: \(selectedProcess.pid).")
             } else {
                 Text("No process is selected.")
             }
@@ -69,6 +69,14 @@ struct ProcessesPage: View {
         } message: {
             Text(terminationErrorMessage)
         }
+    }
+
+    private var endTaskPromptTitle: String {
+        guard let selectedProcess = viewModel.selectedProcess else {
+            return "End task?"
+        }
+
+        return "End \(selectedProcess.name)?"
     }
 }
 
