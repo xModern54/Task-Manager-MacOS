@@ -15,6 +15,7 @@ struct PerformancePage: View {
     let npuHistory: [Double]
     let batterySnapshot: SystemBatterySnapshot
     let batteryHistory: [Double]
+    let privilegedCPUSensorSnapshot: SystemPrivilegedCPUSensorSnapshot
     @Binding var selectedDeviceID: PerformanceDevice.ID
 
     @State private var processorName: String?
@@ -30,7 +31,8 @@ struct PerformancePage: View {
                 return device.updatingCPUStats(
                     from: summary,
                     samples: cpuHistory,
-                    speedText: processorSpeedText ?? "--",
+                    speedText: privilegedCPUSensorSnapshot.speedText ?? processorSpeedText ?? "--",
+                    privilegedSensorSnapshot: privilegedCPUSensorSnapshot,
                     uptimeText: uptimeText
                 )
             } else if device.kind == .memory {
@@ -460,6 +462,7 @@ private extension PerformanceDevice {
         from summary: ProcessSummary,
         samples: [Double],
         speedText: String,
+        privilegedSensorSnapshot: SystemPrivilegedCPUSensorSnapshot,
         uptimeText: String
     ) -> PerformanceDevice {
         guard kind == .cpu else { return self }
@@ -481,6 +484,15 @@ private extension PerformanceDevice {
             }
         }
 
+        let advancedStats = [
+            PerformanceStat(label: "P-core speed", value: privilegedSensorSnapshot.performanceFrequencyMHz.map { formatFrequency($0) } ?? "--"),
+            PerformanceStat(label: "E-core speed", value: privilegedSensorSnapshot.efficiencyFrequencyMHz.map { formatFrequency($0) } ?? "--"),
+            PerformanceStat(label: "Temperature", value: formattedTemperature(privilegedSensorSnapshot.temperatureCelsius)),
+            PerformanceStat(label: "Thermal pressure", value: privilegedSensorSnapshot.thermalPressure),
+            PerformanceStat(label: "Advanced sensors", value: privilegedSensorSnapshot.helperStatus),
+            PerformanceStat(label: "Sensor error", value: privilegedSensorSnapshot.lastError ?? "--")
+        ]
+
         return PerformanceDevice(
             id: id,
             kind: kind,
@@ -491,7 +503,7 @@ private extension PerformanceDevice {
             detailSubtitle: detailSubtitle,
             color: color,
             samples: samples.isEmpty ? [0] : samples,
-            stats: updatedStats
+            stats: updatedStats + advancedStats
         )
     }
 

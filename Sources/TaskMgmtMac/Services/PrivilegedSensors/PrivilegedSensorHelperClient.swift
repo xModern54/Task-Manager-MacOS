@@ -3,6 +3,8 @@ import ServiceManagement
 @preconcurrency import XPC
 
 struct PrivilegedSensorHelperClient: Sendable {
+    typealias Status = SMAppService.Status
+
     static let shared = PrivilegedSensorHelperClient()
 
     static let label = "com.xmodern.TaskMgmtMac.PrivilegedSensorHelper"

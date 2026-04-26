@@ -55,7 +55,8 @@ private func runPowermetrics() throws -> String {
         "-n", "1",
         "-i", "1000",
         "--samplers", "cpu_power,thermal",
-        "--show-pstates"
+        "--show-pstates",
+        "--show-extra-power-info"
     ]
     process.standardOutput = outputPipe
     process.standardError = errorPipe
