@@ -7,8 +7,10 @@ struct PerformancePage: View {
     let memoryHistory: [Double]
     let gpuSnapshot: SystemGPUSnapshot
     let gpuHistory: [Double]
+    let diskSnapshot: SystemDiskSnapshot
+    let diskHistory: [Double]
+    @Binding var selectedDeviceID: PerformanceDevice.ID
 
-    @State private var selectedDeviceID = PerformanceDevice.mockDevices[0].id
     @State private var processorName: String?
     @State private var processorSpeedText: String?
     @State private var systemBootDate: Date?
@@ -37,6 +39,11 @@ struct PerformancePage: View {
                 return device.updatingGPUStats(
                     from: gpuSnapshot,
                     samples: gpuHistory
+                )
+            } else if device.kind == .disk {
+                return device.updatingDiskStats(
+                    from: diskSnapshot,
+                    samples: diskHistory
                 )
             }
 
@@ -521,6 +528,49 @@ private extension PerformanceDevice {
             stats: updatedStats
         )
     }
+
+    func updatingDiskStats(
+        from snapshot: SystemDiskSnapshot,
+        samples: [Double]
+    ) -> PerformanceDevice {
+        guard kind == .disk else { return self }
+
+        let updatedStats = stats.map { stat in
+            switch stat.label {
+            case "Active time":
+                PerformanceStat(label: stat.label, value: "\(snapshot.activePercent)%")
+            case "Average response time":
+                PerformanceStat(label: stat.label, value: formattedMilliseconds(snapshot.averageResponseMilliseconds))
+            case "Read speed":
+                PerformanceStat(label: stat.label, value: formattedBytesPerSecond(snapshot.readBytesPerSecond))
+            case "Write speed":
+                PerformanceStat(label: stat.label, value: formattedBytesPerSecond(snapshot.writeBytesPerSecond))
+            case "Capacity":
+                PerformanceStat(label: stat.label, value: snapshot.capacityBytes > 0 ? formattedGigabytes(snapshot.capacityBytes) : "--")
+            case "Type":
+                PerformanceStat(label: stat.label, value: snapshot.type)
+            default:
+                stat
+            }
+        }
+
+        let totalTransferBytes = snapshot.readBytesPerSecond + snapshot.writeBytesPerSecond
+
+        return PerformanceDevice(
+            id: id,
+            kind: kind,
+            title: title,
+            subtitle: snapshot.type,
+            valueText: "\(snapshot.activePercent)%",
+            detailTitle: detailTitle,
+            detailSubtitle: snapshot.name,
+            color: color,
+            samples: samples.isEmpty ? [0] : samples,
+            stats: updatedStats + [
+                PerformanceStat(label: "Disk transfer rate", value: formattedBytesPerSecond(totalTransferBytes))
+            ]
+        )
+    }
 }
 
 private func formattedGigabytes(_ bytes: UInt64) -> String {
@@ -531,4 +581,19 @@ private func formattedGigabytes(_ bytes: UInt64) -> String {
 private func formattedMegabytes(_ bytes: UInt64) -> String {
     let megabytes = Double(bytes) / (1024 * 1024)
     return String(format: "%.0f MB", megabytes)
+}
+
+private func formattedBytesPerSecond(_ bytes: UInt64) -> String {
+    let formatter = ByteCountFormatter()
+    formatter.countStyle = .file
+    formatter.allowedUnits = [.useKB, .useMB, .useGB]
+    return "\(formatter.string(fromByteCount: Int64(bytes)))/s"
+}
+
+private func formattedMilliseconds(_ milliseconds: Double) -> String {
+    if milliseconds < 10 {
+        return String(format: "%.1f ms", milliseconds)
+    }
+
+    return "\(Int(milliseconds.rounded())) ms"
 }

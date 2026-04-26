@@ -25,7 +25,10 @@ struct TaskManagerRootView: View {
                         cpuHistory: viewModel.cpuHistory,
                         memoryHistory: viewModel.memoryHistory,
                         gpuSnapshot: viewModel.gpuSnapshot,
-                        gpuHistory: viewModel.gpuHistory
+                        gpuHistory: viewModel.gpuHistory,
+                        diskSnapshot: viewModel.diskSnapshot,
+                        diskHistory: viewModel.diskHistory,
+                        selectedDeviceID: $viewModel.selectedPerformanceDeviceID
                     )
                 }
             }

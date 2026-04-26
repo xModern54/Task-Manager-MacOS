@@ -1,7 +1,7 @@
 import Foundation
 
 protocol SystemGPUInfoProviding: Sendable {
-    func snapshot() async -> SystemGPUSnapshot
+    func snapshot(includeDetails: Bool) async -> SystemGPUSnapshot
 }
 
 struct SystemGPUSnapshot: Sendable {

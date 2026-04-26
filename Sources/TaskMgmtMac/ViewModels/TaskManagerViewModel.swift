@@ -16,18 +16,24 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var memoryHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var gpuHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var gpuSnapshot = SystemGPUSnapshot.unavailable
+    @Published private(set) var diskHistory = Array(repeating: 0.0, count: 60)
+    @Published private(set) var diskSnapshot = SystemDiskSnapshot.unavailable
+    @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
 
     private let historyLimit = 60
     private let refreshInterval: Duration = .milliseconds(500)
     private let monitor: any ProcessMonitoringProviding
     private let gpuInfoProvider: any SystemGPUInfoProviding
+    private let diskInfoProvider: any SystemDiskInfoProviding
 
     init(
         monitor: ProcessMonitoringProviding,
-        gpuInfoProvider: SystemGPUInfoProviding = IOKitSystemGPUInfoProvider()
+        gpuInfoProvider: SystemGPUInfoProviding = IOKitSystemGPUInfoProvider(),
+        diskInfoProvider: SystemDiskInfoProviding = IOKitSystemDiskInfoProvider()
     ) {
         self.monitor = monitor
         self.gpuInfoProvider = gpuInfoProvider
+        self.diskInfoProvider = diskInfoProvider
     }
 
     var visibleProcesses: [ProcessMetric] {
@@ -52,17 +58,31 @@ final class TaskManagerViewModel: ObservableObject {
     }
 
     func refresh() async {
-        async let monitoredSnapshot = monitor.currentSnapshot()
-        async let currentGPUSnapshot = gpuInfoProvider.snapshot()
+        let shouldCollectProcessList = selectedSection == .processes
+        let shouldCollectPerformanceSamples = selectedSection == .devices
+
+        async let monitoredSnapshot = monitor.currentSnapshot(includesProcesses: shouldCollectProcessList)
+        async let currentGPUSnapshot = shouldCollectPerformanceSamples
+            ? gpuInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "gpu0")
+            : SystemGPUSnapshot.unavailable
+        async let currentDiskSnapshot = shouldCollectPerformanceSamples
+            ? diskInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "disk0")
+            : SystemDiskSnapshot.unavailable
 
         let nextSnapshot = await monitoredSnapshot
         let nextGPUSnapshot = await currentGPUSnapshot
+        let nextDiskSnapshot = await currentDiskSnapshot
 
         snapshot = nextSnapshot
-        gpuSnapshot = nextGPUSnapshot
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
         appendMemoryHistoryValue(Double(nextSnapshot.summary.memory))
-        appendGPUHistoryValue(Double(nextGPUSnapshot.usagePercent))
+
+        if shouldCollectPerformanceSamples {
+            gpuSnapshot = nextGPUSnapshot
+            diskSnapshot = nextDiskSnapshot
+            appendGPUHistoryValue(Double(nextGPUSnapshot.usagePercent))
+            appendDiskHistoryValue(Double(nextDiskSnapshot.activePercent))
+        }
 
         if let selectedProcessID, !nextSnapshot.processes.contains(where: { $0.id == selectedProcessID }) {
             self.selectedProcessID = nil
@@ -115,6 +135,14 @@ final class TaskManagerViewModel: ObservableObject {
 
         if gpuHistory.count > historyLimit {
             gpuHistory.removeFirst(gpuHistory.count - historyLimit)
+        }
+    }
+
+    private func appendDiskHistoryValue(_ value: Double) {
+        diskHistory.append(value)
+
+        if diskHistory.count > historyLimit {
+            diskHistory.removeFirst(diskHistory.count - historyLimit)
         }
     }
 }

@@ -3,18 +3,34 @@ import IOKit
 import Metal
 
 actor IOKitSystemGPUInfoProvider: SystemGPUInfoProviding {
-    func snapshot() async -> SystemGPUSnapshot {
-        let device = MTLCreateSystemDefaultDevice()
-        let registrySnapshot = Self.ioRegistrySnapshot()
+    private var cachedDetails = SystemGPUSnapshot.unavailable
 
-        return SystemGPUSnapshot(
-            name: device?.name ?? registrySnapshot.name ?? "GPU",
+    func snapshot(includeDetails: Bool) async -> SystemGPUSnapshot {
+        let registrySnapshot = Self.ioRegistrySnapshot(includeDetails: includeDetails)
+
+        guard includeDetails else {
+            return SystemGPUSnapshot(
+                name: cachedDetails.name,
+                usagePercent: registrySnapshot.usagePercent,
+                allocatedMemoryBytes: cachedDetails.allocatedMemoryBytes,
+                inUseMemoryBytes: cachedDetails.inUseMemoryBytes,
+                hasUnifiedMemory: cachedDetails.hasUnifiedMemory,
+                coreCount: cachedDetails.coreCount
+            )
+        }
+
+        let device = MTLCreateSystemDefaultDevice()
+        let snapshot = SystemGPUSnapshot(
+            name: device?.name ?? registrySnapshot.name ?? cachedDetails.name,
             usagePercent: registrySnapshot.usagePercent,
             allocatedMemoryBytes: registrySnapshot.allocatedMemoryBytes,
             inUseMemoryBytes: registrySnapshot.inUseMemoryBytes,
-            hasUnifiedMemory: device?.hasUnifiedMemory ?? false,
-            coreCount: registrySnapshot.coreCount
+            hasUnifiedMemory: device?.hasUnifiedMemory ?? cachedDetails.hasUnifiedMemory,
+            coreCount: registrySnapshot.coreCount ?? cachedDetails.coreCount
         )
+
+        cachedDetails = snapshot
+        return snapshot
     }
 
     private struct RegistrySnapshot {
@@ -25,7 +41,7 @@ actor IOKitSystemGPUInfoProvider: SystemGPUInfoProviding {
         let coreCount: Int?
     }
 
-    private static func ioRegistrySnapshot() -> RegistrySnapshot {
+    private static func ioRegistrySnapshot(includeDetails: Bool) -> RegistrySnapshot {
         var iterator: io_iterator_t = 0
         let result = IORegistryCreateIterator(
             kIOMainPortDefault,
@@ -61,18 +77,18 @@ actor IOKitSystemGPUInfoProvider: SystemGPUInfoProviding {
             }
 
             return RegistrySnapshot(
-                name: stringProperty("IONameMatched", from: entry),
+                name: includeDetails ? stringProperty("IONameMatched", from: entry) : nil,
                 usagePercent: clampedPercent(statistics["Device Utilization %"]),
-                allocatedMemoryBytes: numericValue(statistics["Alloc system memory"]) ?? 0,
-                inUseMemoryBytes: numericValue(statistics["In use system memory"]) ?? 0,
-                coreCount: numericValue(
+                allocatedMemoryBytes: includeDetails ? numericValue(statistics["Alloc system memory"]) ?? 0 : 0,
+                inUseMemoryBytes: includeDetails ? numericValue(statistics["In use system memory"]) ?? 0 : 0,
+                coreCount: includeDetails ? numericValue(
                     IORegistryEntryCreateCFProperty(
                         entry,
                         "gpu-core-count" as CFString,
                         kCFAllocatorDefault,
                         0
                     )?.takeRetainedValue()
-                ).map(Int.init)
+                ).map(Int.init) : nil
             )
         }
 

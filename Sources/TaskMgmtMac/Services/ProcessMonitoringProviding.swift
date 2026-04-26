@@ -1,5 +1,5 @@
 import Foundation
 
 protocol ProcessMonitoringProviding: Sendable {
-    func currentSnapshot() async -> ProcessSnapshot
+    func currentSnapshot(includesProcesses: Bool) async -> ProcessSnapshot
 }
