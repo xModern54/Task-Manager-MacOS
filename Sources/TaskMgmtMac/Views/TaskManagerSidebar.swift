@@ -8,7 +8,7 @@ struct TaskManagerSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(TaskManagerSection.allCases) { section in
+            ForEach([TaskManagerSection.processes, .devices]) { section in
                 SidebarRow(
                     section: section,
                     isSelected: selection == section,
@@ -23,8 +23,21 @@ struct TaskManagerSidebar: View {
             }
 
             Spacer()
+
+            SidebarRow(
+                section: .settings,
+                isSelected: selection == .settings,
+                isExpanded: isExpanded,
+                selectionNamespace: selectionNamespace
+            )
+            .onTapGesture {
+                withAnimation(.interpolatingSpring(stiffness: 320, damping: 30)) {
+                    selection = .settings
+                }
+            }
         }
         .padding(.top, 44)
+        .padding(.bottom, 10)
         .padding(.horizontal, isExpanded ? 6 : 4)
         .frame(width: isExpanded ? 300 : 52)
         .background(WindowsTaskManagerTheme.sidebar)
