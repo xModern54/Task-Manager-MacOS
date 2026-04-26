@@ -11,6 +11,8 @@ cd "$repo_root"
 
 app_dir="$repo_root/.build/debug/TaskMgmtMac.app"
 executable="$repo_root/.build/debug/TaskMgmtMac"
+helper_executable="$repo_root/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
+helper_plist_source="$repo_root/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 plist="$app_dir/Contents/Info.plist"
 remote_name="${GIT_REMOTE_NAME:-origin}"
 remote_url="${GIT_REMOTE_URL:-https://github.com/xModern54/Task-Manager-MacOS.git}"
@@ -46,7 +48,10 @@ echo "==> restart TaskMgmtMac"
 pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$app_dir"
 mkdir -p "$app_dir/Contents/MacOS"
+mkdir -p "$app_dir/Contents/Library/LaunchDaemons"
 cp "$executable" "$app_dir/Contents/MacOS/TaskMgmtMac"
+cp "$helper_executable" "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
+cp "$helper_plist_source" "$app_dir/Contents/Library/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 
 plutil -create xml1 "$plist" >/dev/null
 /usr/libexec/PlistBuddy \
@@ -58,6 +63,10 @@ plutil -create xml1 "$plist" >/dev/null
     -c "Add :CFBundleShortVersionString string 0.1" \
     -c "Add :LSMinimumSystemVersion string 14.0" \
     "$plist" >/dev/null
+
+run_quietly "codesign helper" codesign --force --sign - "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
+run_quietly "codesign app" codesign --force --sign - --deep "$app_dir"
+
 open "$app_dir"
 
 echo "==> git sync"

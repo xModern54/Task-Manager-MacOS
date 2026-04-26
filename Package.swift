@@ -8,12 +8,17 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "TaskMgmtMac", targets: ["TaskMgmtMac"])
+        .executable(name: "TaskMgmtMac", targets: ["TaskMgmtMac"]),
+        .executable(name: "TaskMgmtMacPrivilegedSensorHelper", targets: ["TaskMgmtMacPrivilegedSensorHelper"])
     ],
     targets: [
         .executableTarget(
             name: "TaskMgmtMac",
             path: "Sources/TaskMgmtMac"
+        ),
+        .executableTarget(
+            name: "TaskMgmtMacPrivilegedSensorHelper",
+            path: "Sources/TaskMgmtMacPrivilegedSensorHelper"
         )
     ]
 )
