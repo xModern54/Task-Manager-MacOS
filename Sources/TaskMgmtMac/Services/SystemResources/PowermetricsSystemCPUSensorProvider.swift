@@ -50,16 +50,22 @@ actor PowermetricsSystemCPUSensorProvider: SystemCPUSensorProviding {
             return cachedSnapshot
         }
 
+        let hidTemperature = IOHIDSystemCPUTemperatureReader.temperatureCelsius()
+
         guard RootLaunchManager.isRunningAsRoot else {
+            cachedSnapshot.temperatureCelsius = hidTemperature ?? cachedSnapshot.temperatureCelsius
             cachedSnapshot.lastError = "Root access required"
             return cachedSnapshot
         }
 
         do {
             let output = try await runPowermetrics()
-            cachedSnapshot = PowermetricsCPUSensorParser.snapshot(from: output)
+            var nextSnapshot = PowermetricsCPUSensorParser.snapshot(from: output)
+            nextSnapshot.temperatureCelsius = nextSnapshot.temperatureCelsius ?? hidTemperature
+            cachedSnapshot = nextSnapshot
             lastSampleDate = Date()
         } catch {
+            cachedSnapshot.temperatureCelsius = hidTemperature ?? cachedSnapshot.temperatureCelsius
             cachedSnapshot.lastError = error.localizedDescription
         }
 
