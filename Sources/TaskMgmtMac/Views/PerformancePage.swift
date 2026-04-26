@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 import SwiftUI
 
 struct PerformancePage: View {
@@ -296,6 +297,14 @@ private struct PerformanceDetail: View {
 private struct CPUPerformanceDetail: View {
     let device: PerformanceDevice
 
+    private var shouldShowAdvancedSensorApprovalButton: Bool {
+        guard let status = device.stats.first(where: { $0.label == "Advanced sensors" })?.value else {
+            return false
+        }
+
+        return status == "Requires approval" || status == "Not registered" || status == "Not found"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("% Utilization over 60 seconds")
@@ -307,6 +316,26 @@ private struct CPUPerformanceDetail: View {
                     PerformanceGraphView(samples: rotated(device.samples, by: index), color: device.color)
                         .frame(height: 58)
                 }
+            }
+
+            if shouldShowAdvancedSensorApprovalButton {
+                Button {
+                    SMAppService.openSystemSettingsLoginItems()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "slider.horizontal.3")
+                            .taskManagerFont(13, weight: .semibold)
+
+                        Text("Allow advanced sensors")
+                            .taskManagerFont(13, weight: .semibold)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .background(WindowsTaskManagerTheme.sidebarSelection)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
             }
 
             StatGrid(stats: device.stats, columns: 3)
