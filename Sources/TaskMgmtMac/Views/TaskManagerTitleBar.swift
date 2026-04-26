@@ -24,9 +24,11 @@ struct TaskManagerTitleBar: View {
             }
             .frame(width: 205, alignment: .leading)
 
-            SearchField(text: $viewModel.searchText)
-                .frame(width: 390, height: 40)
-                .padding(.leading, 10)
+            if viewModel.selectedSection == .processes {
+                SearchField(text: $viewModel.searchText)
+                    .frame(width: 390, height: 40)
+                    .padding(.leading, 10)
+            }
 
             Spacer()
         }
