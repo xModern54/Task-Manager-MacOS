@@ -163,8 +163,14 @@ private struct ProcessRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 32)
-        .foregroundStyle(isSelected ? Color.white : WindowsTaskManagerTheme.textPrimary)
-        .background(isSelected ? WindowsTaskManagerTheme.accent : WindowsTaskManagerTheme.table)
+        .foregroundStyle(WindowsTaskManagerTheme.textPrimary)
+        .background(isSelected ? WindowsTaskManagerTheme.tableSelection : WindowsTaskManagerTheme.table)
+        .overlay {
+            if isSelected {
+                WindowsTaskManagerTheme.accent
+                    .opacity(0.10)
+            }
+        }
         .contentShape(Rectangle())
         .contextMenu {
             Button("Expand") {}
