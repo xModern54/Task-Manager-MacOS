@@ -2,8 +2,21 @@ import Foundation
 
 struct MockProcessMonitor: ProcessMonitoringProviding, Sendable {
     func currentSnapshot() async -> ProcessSnapshot {
-        ProcessSnapshot(
-            summary: ProcessSummary(cpu: 92, memory: 54, disk: 1, network: 0, gpu: 0, processCount: Self.processes.count, threadCount: 1741),
+        let totalBytes = ProcessInfo.processInfo.physicalMemory
+        let usedBytes = UInt64(Double(totalBytes) * 0.54)
+        return ProcessSnapshot(
+            summary: ProcessSummary(
+                cpu: 92,
+                memory: 54,
+                memoryUsedBytes: usedBytes,
+                memoryTotalBytes: totalBytes,
+                memoryCompressedBytes: 0,
+                disk: 1,
+                network: 0,
+                gpu: 0,
+                processCount: Self.processes.count,
+                threadCount: 1741
+            ),
             processes: Self.processes
         )
     }

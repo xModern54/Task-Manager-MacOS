@@ -68,11 +68,38 @@ enum PowerUsage: String, Hashable, Sendable {
 struct ProcessSummary: Hashable, Sendable {
     let cpu: Int
     let memory: Int
+    let memoryUsedBytes: UInt64
+    let memoryTotalBytes: UInt64
+    let memoryCompressedBytes: UInt64
     let disk: Int
     let network: Int
     let gpu: Int
     let processCount: Int
     let threadCount: Int
+
+    init(
+        cpu: Int,
+        memory: Int,
+        memoryUsedBytes: UInt64 = 0,
+        memoryTotalBytes: UInt64 = 0,
+        memoryCompressedBytes: UInt64 = 0,
+        disk: Int,
+        network: Int,
+        gpu: Int,
+        processCount: Int,
+        threadCount: Int
+    ) {
+        self.cpu = cpu
+        self.memory = memory
+        self.memoryUsedBytes = memoryUsedBytes
+        self.memoryTotalBytes = memoryTotalBytes
+        self.memoryCompressedBytes = memoryCompressedBytes
+        self.disk = disk
+        self.network = network
+        self.gpu = gpu
+        self.processCount = processCount
+        self.threadCount = threadCount
+    }
 }
 
 struct ProcessSnapshot: Hashable, Sendable {

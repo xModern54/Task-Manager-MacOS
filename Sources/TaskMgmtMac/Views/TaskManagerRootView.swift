@@ -22,7 +22,8 @@ struct TaskManagerRootView: View {
                 case .devices:
                     PerformancePage(
                         summary: viewModel.snapshot.summary,
-                        cpuHistory: viewModel.cpuHistory
+                        cpuHistory: viewModel.cpuHistory,
+                        memoryHistory: viewModel.memoryHistory
                     )
                 }
             }

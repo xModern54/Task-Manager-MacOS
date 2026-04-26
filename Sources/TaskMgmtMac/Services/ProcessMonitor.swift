@@ -19,10 +19,11 @@ actor ProcessMonitor: ProcessMonitoringProviding {
 
         let sample = await Task.detached(priority: .utility) {
             let processes = processProvider.processes()
+            let memoryUsage = memoryProvider.usage()
             return ProcessMonitorSample(
                 timestampNanoseconds: DispatchTime.now().uptimeNanoseconds,
                 activeProcessorCount: max(ProcessInfo.processInfo.activeProcessorCount, 1),
-                memoryUsagePercent: memoryProvider.usagePercent(),
+                memoryUsage: memoryUsage,
                 processes: processes
             )
         }.value
@@ -45,7 +46,10 @@ actor ProcessMonitor: ProcessMonitoringProviding {
         return ProcessSnapshot(
             summary: ProcessSummary(
                 cpu: min(Int(totalCPUPercent.rounded()), 100),
-                memory: sample.memoryUsagePercent,
+                memory: sample.memoryUsage.usagePercent,
+                memoryUsedBytes: sample.memoryUsage.usedBytes,
+                memoryTotalBytes: sample.memoryUsage.totalBytes,
+                memoryCompressedBytes: sample.memoryUsage.compressedBytes,
                 disk: 0,
                 network: 0,
                 gpu: 0,
@@ -76,7 +80,7 @@ actor ProcessMonitor: ProcessMonitoringProviding {
 private struct ProcessMonitorSample: Sendable {
     let timestampNanoseconds: UInt64
     let activeProcessorCount: Int
-    let memoryUsagePercent: Int
+    let memoryUsage: SystemMemoryUsage
     let processes: [SystemProcessInfo]
 }
 

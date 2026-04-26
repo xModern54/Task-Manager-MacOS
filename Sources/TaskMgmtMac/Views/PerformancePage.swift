@@ -1,8 +1,10 @@
+import Foundation
 import SwiftUI
 
 struct PerformancePage: View {
     let summary: ProcessSummary
     let cpuHistory: [Double]
+    let memoryHistory: [Double]
 
     @State private var selectedDeviceID = PerformanceDevice.mockDevices[0].id
     @State private var processorName: String?
@@ -14,15 +16,43 @@ struct PerformancePage: View {
 
     private var devices: [PerformanceDevice] {
         PerformanceDevice.mockDevices.map { device in
-            device.kind == .cpu
-                ? device.updatingCPUStats(
+            if device.kind == .cpu {
+                return device.updatingCPUStats(
                     from: summary,
                     samples: cpuHistory,
                     speedText: processorSpeedText ?? "--",
                     uptimeText: uptimeText
                 )
-                : device
+            } else if device.kind == .memory {
+                return device.updatingMemoryStats(
+                    from: summary,
+                    samples: memoryHistory,
+                    usedBytes: resolvedMemoryUsedBytes(summary),
+                    totalBytes: resolvedMemoryTotalBytes(summary),
+                    compressedBytes: summary.memoryCompressedBytes
+                )
+            }
+
+            return device
         }
+    }
+
+    private func resolvedMemoryTotalBytes(_ summary: ProcessSummary) -> UInt64 {
+        if summary.memoryTotalBytes > 0 {
+            return summary.memoryTotalBytes
+        }
+
+        return ProcessInfo.processInfo.physicalMemory
+    }
+
+    private func resolvedMemoryUsedBytes(_ summary: ProcessSummary) -> UInt64 {
+        if summary.memoryUsedBytes > 0 {
+            return min(summary.memoryUsedBytes, resolvedMemoryTotalBytes(summary))
+        }
+
+        guard resolvedMemoryTotalBytes(summary) > 0, summary.memory > 0 else { return 0 }
+        let calculated = Double(resolvedMemoryTotalBytes(summary)) * Double(summary.memory) / 100
+        return min(UInt64(calculated.rounded()), resolvedMemoryTotalBytes(summary))
     }
 
     private var uptimeText: String {
@@ -243,7 +273,7 @@ private struct MemoryPerformanceDetail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            LabeledGraph(title: "Memory usage", trailing: "31.9 GB", device: device, height: 205, fill: true)
+            LabeledGraph(title: "Memory usage", trailing: device.valueText, device: device, height: 205, fill: true)
 
             Text("Memory composition")
                 .taskManagerFont(12)
@@ -406,4 +436,63 @@ private extension PerformanceDevice {
             stats: updatedStats
         )
     }
+
+    func updatingMemoryStats(
+        from summary: ProcessSummary,
+        samples: [Double],
+        usedBytes: UInt64,
+        totalBytes: UInt64,
+        compressedBytes: UInt64
+    ) -> PerformanceDevice {
+        guard kind == .memory else { return self }
+
+        let clampedTotalBytes = max(totalBytes, 1)
+        let clampedUsedBytes = min(usedBytes, clampedTotalBytes)
+        let availableBytes = clampedTotalBytes - clampedUsedBytes
+        let compressedText = "\(formattedMegabytes(compressedBytes))"
+
+        let updatedStats = stats.map { stat in
+            switch stat.label {
+            case "In use (Compressed)":
+                PerformanceStat(
+                    label: stat.label,
+                    value: "\(formattedGigabytes(clampedUsedBytes)) (\(compressedText))"
+                )
+            case "Available":
+                PerformanceStat(label: stat.label, value: formattedGigabytes(availableBytes))
+            case "Committed":
+                PerformanceStat(
+                    label: stat.label,
+                    value: "\(formattedGigabytes(clampedUsedBytes))/\(formattedGigabytes(clampedTotalBytes))"
+                )
+            case "Cached":
+                PerformanceStat(label: stat.label, value: "--")
+            default:
+                stat
+            }
+        }
+
+        return PerformanceDevice(
+            id: id,
+            kind: kind,
+            title: title,
+            subtitle: subtitle,
+            valueText: "\(formattedGigabytes(clampedUsedBytes))/\(formattedGigabytes(clampedTotalBytes)) (\(summary.memory)%)",
+            detailTitle: detailTitle,
+            detailSubtitle: formattedGigabytes(clampedTotalBytes),
+            color: color,
+            samples: samples.isEmpty ? [0] : samples,
+            stats: updatedStats
+        )
+    }
+}
+
+private func formattedGigabytes(_ bytes: UInt64) -> String {
+    let gibibytes = Double(bytes) / (1024 * 1024 * 1024)
+    return String(format: "%.1f GB", gibibytes)
+}
+
+private func formattedMegabytes(_ bytes: UInt64) -> String {
+    let megabytes = Double(bytes) / (1024 * 1024)
+    return String(format: "%.0f MB", megabytes)
 }
