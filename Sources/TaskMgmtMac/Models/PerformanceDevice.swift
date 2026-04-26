@@ -61,11 +61,11 @@ struct PerformanceDevice: Identifiable, Hashable {
         PerformanceDevice(
             id: "disk0",
             kind: .disk,
-            title: "Disk 0 (E:)",
-            subtitle: "HDD",
+            title: "Disk 0",
+            subtitle: "Internal SSD",
             valueText: "0%",
-            detailTitle: "Disk 0 (E:)",
-            detailSubtitle: "TOSHIBA HDWD110",
+            detailTitle: "Disk 0",
+            detailSubtitle: "MacBook Internal SSD",
             color: Color(red: 0.16, green: 0.70, blue: 0.73),
             samples: Array(repeating: 0, count: 20),
             stats: [
@@ -73,45 +73,7 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Average response time", value: "0 ms"),
                 PerformanceStat(label: "Read speed", value: "0 KB/s"),
                 PerformanceStat(label: "Write speed", value: "0 KB/s"),
-                PerformanceStat(label: "Capacity", value: "932 GB"),
-                PerformanceStat(label: "Type", value: "HDD")
-            ]
-        ),
-        PerformanceDevice(
-            id: "disk1",
-            kind: .disk,
-            title: "Disk 1 (C:)",
-            subtitle: "SSD",
-            valueText: "0%",
-            detailTitle: "Disk 1 (C:)",
-            detailSubtitle: "NVMe SSD",
-            color: Color(red: 0.16, green: 0.70, blue: 0.73),
-            samples: Array(repeating: 0, count: 20),
-            stats: [
-                PerformanceStat(label: "Active time", value: "0%"),
-                PerformanceStat(label: "Average response time", value: "0 ms"),
-                PerformanceStat(label: "Read speed", value: "0 KB/s"),
-                PerformanceStat(label: "Write speed", value: "0 KB/s"),
-                PerformanceStat(label: "Capacity", value: "1024 GB"),
-                PerformanceStat(label: "Type", value: "SSD")
-            ]
-        ),
-        PerformanceDevice(
-            id: "disk2",
-            kind: .disk,
-            title: "Disk 2 (D:)",
-            subtitle: "SSD",
-            valueText: "0%",
-            detailTitle: "Disk 2 (D:)",
-            detailSubtitle: "SATA SSD",
-            color: Color(red: 0.16, green: 0.70, blue: 0.73),
-            samples: Array(repeating: 0, count: 20),
-            stats: [
-                PerformanceStat(label: "Active time", value: "0%"),
-                PerformanceStat(label: "Average response time", value: "0 ms"),
-                PerformanceStat(label: "Read speed", value: "0 KB/s"),
-                PerformanceStat(label: "Write speed", value: "0 KB/s"),
-                PerformanceStat(label: "Capacity", value: "512 GB"),
+                PerformanceStat(label: "Capacity", value: "--"),
                 PerformanceStat(label: "Type", value: "SSD")
             ]
         ),
