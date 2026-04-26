@@ -6,7 +6,17 @@ private enum HelperCommand {
     static let cpuPowerSnapshot = "cpu_power_snapshot"
 }
 
-xpc_main { peer in
+private let listener = xpc_connection_create_mach_service(
+    "com.xmodern.TaskMgmtMac.PrivilegedSensorHelper",
+    nil,
+    UInt64(XPC_CONNECTION_MACH_SERVICE_LISTENER)
+)
+
+xpc_connection_set_event_handler(listener) { peer in
+    guard xpc_get_type(peer) == XPC_TYPE_CONNECTION else {
+        return
+    }
+
     xpc_connection_set_event_handler(peer) { event in
         guard xpc_get_type(event) == XPC_TYPE_DICTIONARY else {
             return
@@ -44,6 +54,9 @@ xpc_main { peer in
 
     xpc_connection_resume(peer)
 }
+
+xpc_connection_resume(listener)
+dispatchMain()
 
 private func runPowermetrics() throws -> String {
     let process = Process()

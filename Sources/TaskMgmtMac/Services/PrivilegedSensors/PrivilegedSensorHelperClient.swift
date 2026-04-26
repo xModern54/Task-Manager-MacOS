@@ -59,7 +59,7 @@ struct PrivilegedSensorHelperClient: Sendable {
         let message = xpc_dictionary_create(nil, nil, 0)
         xpc_dictionary_set_string(message, "command", command)
 
-        let reply = xpc_connection_send_message_with_reply_sync(connection, message)
+        let reply = try sendMessageWithTimeout(message, to: connection)
 
         if xpc_get_type(reply) == XPC_TYPE_ERROR {
             let description = xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION)
@@ -77,6 +77,31 @@ struct PrivilegedSensorHelperClient: Sendable {
 
         return payload
     }
+
+    private func sendMessageWithTimeout(_ message: xpc_object_t, to connection: xpc_connection_t) throws -> xpc_object_t {
+        let semaphore = DispatchSemaphore(value: 0)
+        let replyBox = XPCReplyBox()
+        let queue = DispatchQueue(label: "com.xmodern.TaskMgmtMac.privileged-sensor-helper.reply")
+
+        xpc_connection_send_message_with_reply(connection, message, queue) { reply in
+            replyBox.reply = reply
+            semaphore.signal()
+        }
+
+        guard semaphore.wait(timeout: .now() + 8) == .success else {
+            throw PrivilegedSensorHelperError.xpc("Timed out waiting for privileged helper response")
+        }
+
+        guard let reply = replyBox.reply else {
+            throw PrivilegedSensorHelperError.xpc("Privileged helper returned no response")
+        }
+
+        return reply
+    }
+}
+
+private final class XPCReplyBox: @unchecked Sendable {
+    var reply: xpc_object_t?
 }
 
 enum PrivilegedSensorHelperError: LocalizedError {

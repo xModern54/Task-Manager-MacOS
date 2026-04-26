@@ -14,6 +14,7 @@ executable="$repo_root/.build/debug/TaskMgmtMac"
 helper_executable="$repo_root/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
 helper_plist_source="$repo_root/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 plist="$app_dir/Contents/Info.plist"
+helper_bundle_id="com.xmodern.TaskMgmtMac.PrivilegedSensorHelper"
 remote_name="${GIT_REMOTE_NAME:-origin}"
 remote_url="${GIT_REMOTE_URL:-https://github.com/xModern54/Task-Manager-MacOS.git}"
 push_delay_seconds="${GIT_PUSH_DELAY_SECONDS:-1}"
@@ -40,6 +41,16 @@ run_quietly() {
     exit 1
 }
 
+codesign_identity() {
+    if [ -n "${TASKMGMT_CODESIGN_IDENTITY:-}" ]; then
+        printf '%s\n' "$TASKMGMT_CODESIGN_IDENTITY"
+        return
+    fi
+
+    security find-identity -v -p codesigning 2>/dev/null \
+        | awk -F '"' '/Apple Development|Developer ID Application/ { print $2; exit }'
+}
+
 echo "Finishing task: $commit_message"
 
 run_quietly "swift build" swift build
@@ -64,8 +75,15 @@ plutil -create xml1 "$plist" >/dev/null
     -c "Add :LSMinimumSystemVersion string 14.0" \
     "$plist" >/dev/null
 
-run_quietly "codesign helper" codesign --force --sign - "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
-run_quietly "codesign app" codesign --force --sign - --deep "$app_dir"
+sign_identity="$(codesign_identity)"
+if [ -z "$sign_identity" ]; then
+    echo "Warning: no Apple Development/Developer ID signing identity found; using ad-hoc signing."
+    echo "         The privileged helper will build, but macOS will block it until the app is signed with a Team ID."
+    sign_identity="-"
+fi
+
+run_quietly "codesign helper" codesign --force --sign "$sign_identity" --identifier "$helper_bundle_id" "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
+run_quietly "codesign app" codesign --force --sign "$sign_identity" --deep "$app_dir"
 
 open "$app_dir"
 

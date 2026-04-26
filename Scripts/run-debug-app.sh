@@ -7,6 +7,17 @@ EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMac"
 HELPER_EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
 HELPER_PLIST_SOURCE="$ROOT_DIR/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 PLIST="$APP_DIR/Contents/Info.plist"
+HELPER_BUNDLE_ID="com.xmodern.TaskMgmtMac.PrivilegedSensorHelper"
+
+codesign_identity() {
+  if [ -n "${TASKMGMT_CODESIGN_IDENTITY:-}" ]; then
+    printf '%s\n' "$TASKMGMT_CODESIGN_IDENTITY"
+    return
+  fi
+
+  security find-identity -v -p codesigning 2>/dev/null \
+    | awk -F '"' '/Apple Development|Developer ID Application/ { print $2; exit }'
+}
 
 cd "$ROOT_DIR"
 swift build
@@ -31,7 +42,14 @@ plutil -create xml1 "$PLIST"
   -c "Add :LSMinimumSystemVersion string 14.0" \
   "$PLIST"
 
-codesign --force --sign - "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
-codesign --force --sign - --deep "$APP_DIR"
+SIGN_IDENTITY="$(codesign_identity)"
+if [ -z "$SIGN_IDENTITY" ]; then
+  echo "Warning: no Apple Development/Developer ID signing identity found; using ad-hoc signing."
+  echo "         The privileged helper will build, but macOS will block it until the app is signed with a Team ID."
+  SIGN_IDENTITY="-"
+fi
+
+codesign --force --sign "$SIGN_IDENTITY" --identifier "$HELPER_BUNDLE_ID" "$APP_DIR/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
+codesign --force --sign "$SIGN_IDENTITY" --deep "$APP_DIR"
 
 open "$APP_DIR"

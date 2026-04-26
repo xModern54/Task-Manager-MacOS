@@ -46,7 +46,7 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
         }
 
         let status = client.status
-        guard status == .enabled else {
+        if status != .enabled {
             if !didAttemptRegistration {
                 didAttemptRegistration = true
 
@@ -66,16 +66,19 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
                 }
             }
 
-            cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
-                helperStatus: statusDescription(client.status),
-                averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
-                performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
-                efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
-                temperatureCelsius: cachedSnapshot.temperatureCelsius,
-                thermalPressure: cachedSnapshot.thermalPressure,
-                lastError: nil
-            )
-            return cachedSnapshot
+            let currentStatus = client.status
+            if currentStatus != .requiresApproval {
+                cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
+                    helperStatus: statusDescription(currentStatus),
+                    averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
+                    performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
+                    efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
+                    temperatureCelsius: cachedSnapshot.temperatureCelsius,
+                    thermalPressure: cachedSnapshot.thermalPressure,
+                    lastError: nil
+                )
+                return cachedSnapshot
+            }
         }
 
         if let lastSampleDate,
@@ -90,8 +93,9 @@ actor SMAppServicePrivilegedCPUSensorProvider: SystemPrivilegedCPUSensorProvidin
             cachedSnapshot = parsedSnapshot
             lastSampleDate = Date()
         } catch {
+            let currentStatus = client.status
             cachedSnapshot = SystemPrivilegedCPUSensorSnapshot(
-                helperStatus: statusDescription(client.status),
+                helperStatus: statusDescription(currentStatus),
                 averageFrequencyMHz: cachedSnapshot.averageFrequencyMHz,
                 performanceFrequencyMHz: cachedSnapshot.performanceFrequencyMHz,
                 efficiencyFrequencyMHz: cachedSnapshot.efficiencyFrequencyMHz,
