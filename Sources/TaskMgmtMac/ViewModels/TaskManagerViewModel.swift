@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 @MainActor
 final class TaskManagerViewModel: ObservableObject {
@@ -74,6 +75,36 @@ final class TaskManagerViewModel: ObservableObject {
                 fallback: lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
             )
         }
+    }
+
+    var selectedProcess: ProcessMetric? {
+        guard let selectedProcessID else { return nil }
+        return snapshot.processes.first { $0.id == selectedProcessID }
+    }
+
+    func terminateSelectedProcess() -> ProcessTerminationResult {
+        guard let process = selectedProcess else {
+            return ProcessTerminationResult(isSuccess: false, message: "No process is selected.")
+        }
+
+        if process.pid == ProcessInfo.processInfo.processIdentifier {
+            return ProcessTerminationResult(isSuccess: false, message: "TaskMgmtMac cannot end itself.")
+        }
+
+        let result = kill(pid_t(process.pid), SIGTERM)
+        guard result == 0 else {
+            let message = String(cString: strerror(errno))
+            return ProcessTerminationResult(
+                isSuccess: false,
+                message: "Could not end \(process.name) (\(process.pid)): \(message)"
+            )
+        }
+
+        selectedProcessID = nil
+        return ProcessTerminationResult(
+            isSuccess: true,
+            message: "Sent terminate signal to \(process.name) (\(process.pid))."
+        )
     }
 
     func refresh() async {
@@ -216,6 +247,11 @@ final class TaskManagerViewModel: ObservableObject {
             batteryHistory.removeFirst(batteryHistory.count - historyLimit)
         }
     }
+}
+
+struct ProcessTerminationResult: Sendable {
+    let isSuccess: Bool
+    let message: String
 }
 
 enum ProcessSortColumn: Hashable, Sendable {

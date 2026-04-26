@@ -163,6 +163,9 @@ private struct ProcessRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 32)
+        .foregroundStyle(isSelected ? Color.white : WindowsTaskManagerTheme.textPrimary)
+        .background(isSelected ? WindowsTaskManagerTheme.accent : WindowsTaskManagerTheme.table)
+        .contentShape(Rectangle())
         .contextMenu {
             Button("Expand") {}
             Button("Switch to") {}
@@ -226,7 +229,6 @@ private struct ProcessNameCell: View {
             .frame(width: ProcessTableLayout.statusWidth, height: 32)
         }
         .frame(height: 32)
-        .background(isSelected ? WindowsTaskManagerTheme.tableSelection : WindowsTaskManagerTheme.table)
         .overlay(alignment: .trailing) {
             CellSeparator()
         }
@@ -270,7 +272,7 @@ private struct MetricCell: View {
 
     private var background: Color {
         if isSelected {
-            return WindowsTaskManagerTheme.metricHeatStrong
+            return .clear
         }
 
         return WindowsTaskManagerTheme.metricHeat.opacity(0.72 + min(max(intensity, 0), 1) * 0.28)
