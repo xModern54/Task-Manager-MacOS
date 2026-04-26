@@ -34,6 +34,7 @@ struct TaskManagerRootView: View {
                         npuHistory: viewModel.npuHistory,
                         batterySnapshot: viewModel.batterySnapshot,
                         batteryHistory: viewModel.batteryHistory,
+                        cpuSensorSnapshot: viewModel.cpuSensorSnapshot,
                         selectedDeviceID: $viewModel.selectedPerformanceDeviceID
                     )
                 }
