@@ -53,6 +53,8 @@ echo "Finishing task: $commit_message"
 run_quietly "swift build" swift build
 
 echo "==> restart TaskMgmtMac"
+osascript -e 'tell application "TaskMgmtMac" to quit' 2>/dev/null || true
+sleep 1
 pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$app_dir"
 mkdir -p "$app_dir/Contents/MacOS"

@@ -19,6 +19,8 @@ codesign_identity() {
 cd "$ROOT_DIR"
 swift build
 
+osascript -e 'tell application "TaskMgmtMac" to quit' 2>/dev/null || true
+sleep 1
 pkill -x TaskMgmtMac 2>/dev/null || true
 
 rm -rf "$APP_DIR"
