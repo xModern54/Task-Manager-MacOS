@@ -80,33 +80,6 @@ struct PerformanceDevice: Identifiable, Hashable {
             ]
         ),
         PerformanceDevice(
-            id: "battery0",
-            kind: .battery,
-            title: "Battery",
-            subtitle: "Internal battery",
-            valueText: "--",
-            detailTitle: "Battery",
-            detailSubtitle: "Internal battery",
-            color: Color(red: 0.86, green: 0.63, blue: 0.20),
-            samples: Array(repeating: 0, count: 20),
-            stats: [
-                PerformanceStat(label: "Type", value: "Battery"),
-                PerformanceStat(label: "Power source", value: "--"),
-                PerformanceStat(label: "Technology", value: "Li-ion"),
-                PerformanceStat(label: "Temperature", value: "--"),
-                PerformanceStat(label: "Voltage", value: "--"),
-                PerformanceStat(label: "Current now", value: "--"),
-                PerformanceStat(label: "Power now", value: "--"),
-                PerformanceStat(label: "Charge type", value: "--"),
-                PerformanceStat(label: "Cycles", value: "--"),
-                PerformanceStat(label: "Current charge", value: "--"),
-                PerformanceStat(label: "Max charge", value: "--"),
-                PerformanceStat(label: "Level", value: "--"),
-                PerformanceStat(label: "Time to full", value: "--"),
-                PerformanceStat(label: "Adapter", value: "--")
-            ]
-        ),
-        PerformanceDevice(
             id: "ethernet",
             kind: .ethernet,
             title: "Network",
@@ -141,6 +114,33 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Allocated memory", value: "--"),
                 PerformanceStat(label: "Memory type", value: "--"),
                 PerformanceStat(label: "GPU cores", value: "--")
+            ]
+        ),
+        PerformanceDevice(
+            id: "battery0",
+            kind: .battery,
+            title: "Battery",
+            subtitle: "Internal battery",
+            valueText: "--",
+            detailTitle: "Battery",
+            detailSubtitle: "Internal battery",
+            color: Color(red: 0.86, green: 0.63, blue: 0.20),
+            samples: Array(repeating: 0, count: 20),
+            stats: [
+                PerformanceStat(label: "Type", value: "Battery"),
+                PerformanceStat(label: "Power source", value: "--"),
+                PerformanceStat(label: "Technology", value: "Li-ion"),
+                PerformanceStat(label: "Temperature", value: "--"),
+                PerformanceStat(label: "Voltage", value: "--"),
+                PerformanceStat(label: "Current now", value: "--"),
+                PerformanceStat(label: "Power now", value: "--"),
+                PerformanceStat(label: "Charge type", value: "--"),
+                PerformanceStat(label: "Cycles", value: "--"),
+                PerformanceStat(label: "Current charge", value: "--"),
+                PerformanceStat(label: "Max charge", value: "--"),
+                PerformanceStat(label: "Level", value: "--"),
+                PerformanceStat(label: "Time to full", value: "--"),
+                PerformanceStat(label: "Adapter", value: "--")
             ]
         ),
         PerformanceDevice(
