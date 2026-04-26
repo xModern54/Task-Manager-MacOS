@@ -6,9 +6,15 @@ struct TaskMgmtMacApp: App {
         monitor: ProcessMonitor()
     )
 
+    init() {
+        RootLaunchManager.exitIfHandlingProbeArgument()
+    }
+
     var body: some Scene {
         WindowGroup {
-            TaskManagerRootView(viewModel: viewModel)
+            RootLaunchGate {
+                TaskManagerRootView(viewModel: viewModel)
+            }
                 .frame(width: 682, height: 660)
         }
         .windowStyle(.hiddenTitleBar)
