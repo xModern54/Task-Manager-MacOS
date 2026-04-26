@@ -7,6 +7,7 @@ struct PerformanceDevice: Identifiable, Hashable {
         case disk
         case ethernet
         case gpu
+        case npu
     }
 
     let id: String
@@ -112,6 +113,27 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Allocated memory", value: "--"),
                 PerformanceStat(label: "Memory type", value: "--"),
                 PerformanceStat(label: "GPU cores", value: "--")
+            ]
+        ),
+        PerformanceDevice(
+            id: "npu0",
+            kind: .npu,
+            title: "NPU 0",
+            subtitle: "Neural Engine",
+            valueText: "--",
+            detailTitle: "NPU",
+            detailSubtitle: "Apple Neural Engine",
+            color: Color(red: 0.21, green: 0.66, blue: 0.48),
+            samples: Array(repeating: 0, count: 20),
+            stats: [
+                PerformanceStat(label: "Utilization", value: "--"),
+                PerformanceStat(label: "Cores", value: "--"),
+                PerformanceStat(label: "Architecture", value: "--"),
+                PerformanceStat(label: "Version", value: "--"),
+                PerformanceStat(label: "Board type", value: "--"),
+                PerformanceStat(label: "Core ML", value: "--"),
+                PerformanceStat(label: "Precision", value: "Core ML managed"),
+                PerformanceStat(label: "Registry class", value: "--")
             ]
         )
     ]

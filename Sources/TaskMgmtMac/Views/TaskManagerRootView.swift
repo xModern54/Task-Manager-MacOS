@@ -30,6 +30,8 @@ struct TaskManagerRootView: View {
                         diskHistory: viewModel.diskHistory,
                         networkSnapshot: viewModel.networkSnapshot,
                         networkHistory: viewModel.networkHistory,
+                        npuSnapshot: viewModel.npuSnapshot,
+                        npuHistory: viewModel.npuHistory,
                         selectedDeviceID: $viewModel.selectedPerformanceDeviceID
                     )
                 }

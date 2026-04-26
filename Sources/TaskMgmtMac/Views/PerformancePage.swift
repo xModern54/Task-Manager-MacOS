@@ -11,6 +11,8 @@ struct PerformancePage: View {
     let diskHistory: [Double]
     let networkSnapshot: SystemNetworkSnapshot
     let networkHistory: [Double]
+    let npuSnapshot: SystemNPUSnapshot
+    let npuHistory: [Double]
     @Binding var selectedDeviceID: PerformanceDevice.ID
 
     @State private var processorName: String?
@@ -51,6 +53,11 @@ struct PerformancePage: View {
                 return device.updatingNetworkStats(
                     from: networkSnapshot,
                     samples: networkHistory
+                )
+            } else if device.kind == .npu {
+                return device.updatingNPUStats(
+                    from: npuSnapshot,
+                    samples: npuHistory
                 )
             }
 
@@ -260,6 +267,8 @@ private struct PerformanceDetail: View {
                     EthernetPerformanceDetail(device: device)
                 case .gpu:
                     GPUPerformanceDetail(device: device)
+                case .npu:
+                    NPUPerformanceDetail(device: device)
                 }
             }
             .padding(.top, 16)
@@ -348,6 +357,17 @@ private struct GPUPerformanceDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             LabeledGraph(title: "% Utilization", trailing: "100%", device: device, height: 340, fill: true)
+            StatGrid(stats: device.stats, columns: 3)
+        }
+    }
+}
+
+private struct NPUPerformanceDetail: View {
+    let device: PerformanceDevice
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            LabeledGraph(title: "% Utilization", trailing: device.valueText, device: device, height: 340, fill: true)
             StatGrid(stats: device.stats, columns: 3)
         }
     }
@@ -619,6 +639,52 @@ private extension PerformanceDevice {
             color: color,
             samples: normalizedNetworkSamples(samples),
             stats: updatedStats
+        )
+    }
+
+    func updatingNPUStats(
+        from snapshot: SystemNPUSnapshot,
+        samples: [Double]
+    ) -> PerformanceDevice {
+        guard kind == .npu else { return self }
+
+        let utilizationText = snapshot.usagePercent.map { "\($0)%" } ?? "--"
+        let updatedStats = stats.map { stat in
+            switch stat.label {
+            case "Utilization":
+                PerformanceStat(label: stat.label, value: utilizationText)
+            case "Cores":
+                PerformanceStat(label: stat.label, value: snapshot.coreCount.map(String.init) ?? "--")
+            case "Architecture":
+                PerformanceStat(label: stat.label, value: snapshot.architecture)
+            case "Version":
+                PerformanceStat(label: stat.label, value: snapshot.version)
+            case "Board type":
+                PerformanceStat(label: stat.label, value: snapshot.boardType)
+            case "Core ML":
+                PerformanceStat(label: stat.label, value: snapshot.computeDeviceState)
+            case "Precision":
+                PerformanceStat(label: stat.label, value: snapshot.precisionSupport)
+            case "Registry class":
+                PerformanceStat(label: stat.label, value: snapshot.registryClassName)
+            default:
+                stat
+            }
+        }
+
+        return PerformanceDevice(
+            id: id,
+            kind: kind,
+            title: title,
+            subtitle: snapshot.name,
+            valueText: utilizationText,
+            detailTitle: detailTitle,
+            detailSubtitle: snapshot.name,
+            color: color,
+            samples: samples.isEmpty ? [0] : samples,
+            stats: updatedStats + [
+                PerformanceStat(label: "Matched device", value: snapshot.matchedName)
+            ]
         )
     }
 }

@@ -20,6 +20,8 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var diskSnapshot = SystemDiskSnapshot.unavailable
     @Published private(set) var networkHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var networkSnapshot = SystemNetworkSnapshot.unavailable
+    @Published private(set) var npuHistory = Array(repeating: 0.0, count: 60)
+    @Published private(set) var npuSnapshot = SystemNPUSnapshot.unavailable
     @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
 
     private let historyLimit = 60
@@ -28,17 +30,20 @@ final class TaskManagerViewModel: ObservableObject {
     private let gpuInfoProvider: any SystemGPUInfoProviding
     private let diskInfoProvider: any SystemDiskInfoProviding
     private let networkInfoProvider: any SystemNetworkInfoProviding
+    private let npuInfoProvider: any SystemNPUInfoProviding
 
     init(
         monitor: ProcessMonitoringProviding,
         gpuInfoProvider: SystemGPUInfoProviding = IOKitSystemGPUInfoProvider(),
         diskInfoProvider: SystemDiskInfoProviding = IOKitSystemDiskInfoProvider(),
-        networkInfoProvider: SystemNetworkInfoProviding = SystemConfigurationNetworkInfoProvider()
+        networkInfoProvider: SystemNetworkInfoProviding = SystemConfigurationNetworkInfoProvider(),
+        npuInfoProvider: SystemNPUInfoProviding = CoreMLSystemNPUInfoProvider()
     ) {
         self.monitor = monitor
         self.gpuInfoProvider = gpuInfoProvider
         self.diskInfoProvider = diskInfoProvider
         self.networkInfoProvider = networkInfoProvider
+        self.npuInfoProvider = npuInfoProvider
     }
 
     var visibleProcesses: [ProcessMetric] {
@@ -77,11 +82,15 @@ final class TaskManagerViewModel: ObservableObject {
         async let currentNetworkSnapshot = shouldCollectPerformanceSamples
             ? networkInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "ethernet")
             : SystemNetworkSnapshot.unavailable
+        async let currentNPUSnapshot = shouldCollectPerformanceSamples
+            ? npuInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "npu0")
+            : SystemNPUSnapshot.unavailable
 
         let nextSnapshot = await monitoredSnapshot
         let nextGPUSnapshot = await currentGPUSnapshot
         let nextDiskSnapshot = await currentDiskSnapshot
         let nextNetworkSnapshot = await currentNetworkSnapshot
+        let nextNPUSnapshot = await currentNPUSnapshot
 
         snapshot = nextSnapshot
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
@@ -91,9 +100,11 @@ final class TaskManagerViewModel: ObservableObject {
             gpuSnapshot = nextGPUSnapshot
             diskSnapshot = nextDiskSnapshot
             networkSnapshot = nextNetworkSnapshot
+            npuSnapshot = nextNPUSnapshot
             appendGPUHistoryValue(Double(nextGPUSnapshot.usagePercent))
             appendDiskHistoryValue(Double(nextDiskSnapshot.activePercent))
             appendNetworkHistoryValue(Double(nextNetworkSnapshot.throughputBytesPerSecond))
+            appendNPUHistoryValue(Double(nextNPUSnapshot.usagePercent ?? 0))
         }
 
         if shouldCollectProcessList,
@@ -165,6 +176,14 @@ final class TaskManagerViewModel: ObservableObject {
 
         if networkHistory.count > historyLimit {
             networkHistory.removeFirst(networkHistory.count - historyLimit)
+        }
+    }
+
+    private func appendNPUHistoryValue(_ value: Double) {
+        npuHistory.append(value)
+
+        if npuHistory.count > historyLimit {
+            npuHistory.removeFirst(npuHistory.count - historyLimit)
         }
     }
 }
