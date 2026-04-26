@@ -82,6 +82,8 @@ Network per-process and GPU per-process metrics are expected to be harder than C
 
 The repo uses `Scripts/run-debug-app.sh` to build a debug executable, wrap it in a `.app`, kill the previous app instance, and open the new app.
 
+The repo uses `Scripts/finish-task.sh` at the end of each completed task to run a quiet build, restart the debug app, stage changed files, create a commit, wait briefly, and push to the configured remote repository.
+
 Use `swift build` for quick compile checks.
 
 Use `./Scripts/run-debug-app.sh` when the user asks to run the app or when visual verification is needed.
@@ -92,7 +94,7 @@ After completing every user task, always create a git commit.
 
 Commit messages should be short and describe the completed task.
 
-At the end of every completed user task, run `./Scripts/commit-and-push.sh "Short commit message"` so changed files are staged, committed, briefly delayed, and pushed to the configured remote repository.
+At the end of every completed user task, run `./Scripts/finish-task.sh "Short commit message"` so the app is recompiled, the old app process is stopped, the new app is launched, and the finished work is committed and pushed. If this script reports a build, launch, commit, or push error, surface the relevant log output to the user.
 
 Do not commit `.build`, `.DS_Store`, DerivedData, or other local generated files.
 
