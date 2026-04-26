@@ -9,6 +9,10 @@ struct SystemCPUSensorSnapshot: Sendable {
     var performanceFrequencyMHz: Double?
     var efficiencyFrequencyMHz: Double?
     var temperatureCelsius: Double?
+    var cpuPowerWatts: Double?
+    var gpuPowerWatts: Double?
+    var anePowerWatts: Double?
+    var combinedPowerWatts: Double?
     var thermalPressure: String
     var lastError: String?
 
@@ -21,6 +25,10 @@ struct SystemCPUSensorSnapshot: Sendable {
         performanceFrequencyMHz: nil,
         efficiencyFrequencyMHz: nil,
         temperatureCelsius: nil,
+        cpuPowerWatts: nil,
+        gpuPowerWatts: nil,
+        anePowerWatts: nil,
+        combinedPowerWatts: nil,
         thermalPressure: "--",
         lastError: nil
     )
@@ -83,7 +91,7 @@ actor PowermetricsSystemCPUSensorProvider: SystemCPUSensorProviding {
                 process.arguments = [
                     "-n", "1",
                     "-i", "1000",
-                    "--samplers", "cpu_power,thermal",
+                    "--samplers", "cpu_power,gpu_power,ane_power,thermal",
                     "--show-pstates",
                     "--show-extra-power-info"
                 ]
@@ -152,6 +160,10 @@ private enum PowermetricsCPUSensorParser {
             performanceFrequencyMHz: frequencies.performance,
             efficiencyFrequencyMHz: frequencies.efficiency,
             temperatureCelsius: temperature(from: lines),
+            cpuPowerWatts: powerWatts(from: lines, labelPrefix: "CPU Power"),
+            gpuPowerWatts: powerWatts(from: lines, labelPrefix: "GPU Power"),
+            anePowerWatts: powerWatts(from: lines, labelPrefix: "ANE Power"),
+            combinedPowerWatts: powerWatts(from: lines, labelPrefix: "Combined Power"),
             thermalPressure: thermalPressure(from: lines) ?? "--",
             lastError: nil
         )
@@ -235,6 +247,28 @@ private enum PowermetricsCPUSensorParser {
             }
 
             return value
+        }
+
+        return nil
+    }
+
+    private static func powerWatts(from lines: [String], labelPrefix: String) -> Double? {
+        let lowercasedPrefix = labelPrefix.lowercased()
+        let pattern = #"([0-9]+(?:\.[0-9]+)?)\s*(mW|W)\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+
+        for line in lines where line.lowercased().hasPrefix(lowercasedPrefix) {
+            let range = NSRange(line.startIndex..<line.endIndex, in: line)
+            guard let match = regex.firstMatch(in: line, range: range),
+                  let valueRange = Range(match.range(at: 1), in: line),
+                  let unitRange = Range(match.range(at: 2), in: line),
+                  let value = Double(line[valueRange]) else {
+                continue
+            }
+
+            return line[unitRange].lowercased() == "mw" ? value / 1000 : value
         }
 
         return nil

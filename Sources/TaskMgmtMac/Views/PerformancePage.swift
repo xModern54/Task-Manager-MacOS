@@ -489,6 +489,10 @@ private extension PerformanceDevice {
             PerformanceStat(label: "P-core speed", value: sensorSnapshot.performanceFrequencyMHz.map { formatCPUFrequency($0) } ?? "--"),
             PerformanceStat(label: "E-core speed", value: sensorSnapshot.efficiencyFrequencyMHz.map { formatCPUFrequency($0) } ?? "--"),
             PerformanceStat(label: "Temperature", value: formattedTemperature(sensorSnapshot.temperatureCelsius)),
+            PerformanceStat(label: "Package power", value: formattedWatts(sensorSnapshot.combinedPowerWatts)),
+            PerformanceStat(label: "CPU power", value: formattedWatts(sensorSnapshot.cpuPowerWatts)),
+            PerformanceStat(label: "GPU power", value: formattedWatts(sensorSnapshot.gpuPowerWatts)),
+            PerformanceStat(label: "ANE power", value: formattedWatts(sensorSnapshot.anePowerWatts)),
             PerformanceStat(label: "Thermal pressure", value: sensorSnapshot.thermalPressure),
             PerformanceStat(label: "Sensor error", value: sensorSnapshot.lastError ?? "--")
         ]
