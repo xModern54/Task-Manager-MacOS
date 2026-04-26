@@ -14,13 +14,20 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var sortDirection: SortDirection = .descending
     @Published private(set) var cpuHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var memoryHistory = Array(repeating: 0.0, count: 60)
+    @Published private(set) var gpuHistory = Array(repeating: 0.0, count: 60)
+    @Published private(set) var gpuSnapshot = SystemGPUSnapshot.unavailable
 
-    private let cpuHistoryLimit = 60
+    private let historyLimit = 60
     private let refreshInterval: Duration = .milliseconds(500)
     private let monitor: any ProcessMonitoringProviding
+    private let gpuInfoProvider: any SystemGPUInfoProviding
 
-    init(monitor: ProcessMonitoringProviding) {
+    init(
+        monitor: ProcessMonitoringProviding,
+        gpuInfoProvider: SystemGPUInfoProviding = IOKitSystemGPUInfoProvider()
+    ) {
         self.monitor = monitor
+        self.gpuInfoProvider = gpuInfoProvider
     }
 
     var visibleProcesses: [ProcessMetric] {
@@ -45,10 +52,17 @@ final class TaskManagerViewModel: ObservableObject {
     }
 
     func refresh() async {
-        let nextSnapshot = await monitor.currentSnapshot()
+        async let monitoredSnapshot = monitor.currentSnapshot()
+        async let currentGPUSnapshot = gpuInfoProvider.snapshot()
+
+        let nextSnapshot = await monitoredSnapshot
+        let nextGPUSnapshot = await currentGPUSnapshot
+
         snapshot = nextSnapshot
+        gpuSnapshot = nextGPUSnapshot
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
         appendMemoryHistoryValue(Double(nextSnapshot.summary.memory))
+        appendGPUHistoryValue(Double(nextGPUSnapshot.usagePercent))
 
         if let selectedProcessID, !nextSnapshot.processes.contains(where: { $0.id == selectedProcessID }) {
             self.selectedProcessID = nil
@@ -83,16 +97,24 @@ final class TaskManagerViewModel: ObservableObject {
     private func appendCPUHistoryValue(_ value: Double) {
         cpuHistory.append(value)
 
-        if cpuHistory.count > cpuHistoryLimit {
-            cpuHistory.removeFirst(cpuHistory.count - cpuHistoryLimit)
+        if cpuHistory.count > historyLimit {
+            cpuHistory.removeFirst(cpuHistory.count - historyLimit)
         }
     }
 
     private func appendMemoryHistoryValue(_ value: Double) {
         memoryHistory.append(value)
 
-        if memoryHistory.count > cpuHistoryLimit {
-            memoryHistory.removeFirst(memoryHistory.count - cpuHistoryLimit)
+        if memoryHistory.count > historyLimit {
+            memoryHistory.removeFirst(memoryHistory.count - historyLimit)
+        }
+    }
+
+    private func appendGPUHistoryValue(_ value: Double) {
+        gpuHistory.append(value)
+
+        if gpuHistory.count > historyLimit {
+            gpuHistory.removeFirst(gpuHistory.count - historyLimit)
         }
     }
 }

@@ -5,6 +5,8 @@ struct PerformancePage: View {
     let summary: ProcessSummary
     let cpuHistory: [Double]
     let memoryHistory: [Double]
+    let gpuSnapshot: SystemGPUSnapshot
+    let gpuHistory: [Double]
 
     @State private var selectedDeviceID = PerformanceDevice.mockDevices[0].id
     @State private var processorName: String?
@@ -30,6 +32,11 @@ struct PerformancePage: View {
                     usedBytes: resolvedMemoryUsedBytes(summary),
                     totalBytes: resolvedMemoryTotalBytes(summary),
                     compressedBytes: summary.memoryCompressedBytes
+                )
+            } else if device.kind == .gpu {
+                return device.updatingGPUStats(
+                    from: gpuSnapshot,
+                    samples: gpuHistory
                 )
             }
 
@@ -322,15 +329,7 @@ private struct GPUPerformanceDetail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 2), spacing: 8) {
-                LabeledGraph(title: "3D", trailing: "1%", device: device, height: 82, fill: true)
-                LabeledGraph(title: "Copy", trailing: "2%", device: device, height: 82, fill: true)
-                LabeledGraph(title: "Video Encode", trailing: "0%", device: device, height: 82, fill: true)
-                LabeledGraph(title: "Video Decode", trailing: "3%", device: device, height: 82, fill: true)
-            }
-
-            LabeledGraph(title: "Dedicated GPU memory usage", trailing: "16.0 GB", device: device, height: 68)
-            LabeledGraph(title: "Shared GPU memory usage", trailing: "15.9 GB", device: device, height: 68)
+            LabeledGraph(title: "% Utilization", trailing: "100%", device: device, height: 340, fill: true)
             StatGrid(stats: device.stats, columns: 3)
         }
     }
@@ -480,6 +479,43 @@ private extension PerformanceDevice {
             valueText: "\(formattedGigabytes(clampedUsedBytes))/\(formattedGigabytes(clampedTotalBytes)) (\(summary.memory)%)",
             detailTitle: detailTitle,
             detailSubtitle: formattedGigabytes(clampedTotalBytes),
+            color: color,
+            samples: samples.isEmpty ? [0] : samples,
+            stats: updatedStats
+        )
+    }
+
+    func updatingGPUStats(
+        from snapshot: SystemGPUSnapshot,
+        samples: [Double]
+    ) -> PerformanceDevice {
+        guard kind == .gpu else { return self }
+
+        let updatedStats = stats.map { stat in
+            switch stat.label {
+            case "Utilization":
+                PerformanceStat(label: stat.label, value: "\(snapshot.usagePercent)%")
+            case "GPU memory":
+                PerformanceStat(label: stat.label, value: formattedMegabytes(snapshot.inUseMemoryBytes))
+            case "Allocated memory":
+                PerformanceStat(label: stat.label, value: formattedGigabytes(snapshot.allocatedMemoryBytes))
+            case "Memory type":
+                PerformanceStat(label: stat.label, value: snapshot.hasUnifiedMemory ? "Unified" : "Dedicated")
+            case "GPU cores":
+                PerformanceStat(label: stat.label, value: snapshot.coreCount.map(String.init) ?? "--")
+            default:
+                stat
+            }
+        }
+
+        return PerformanceDevice(
+            id: id,
+            kind: kind,
+            title: title,
+            subtitle: snapshot.name,
+            valueText: "\(snapshot.usagePercent)%",
+            detailTitle: detailTitle,
+            detailSubtitle: snapshot.name,
             color: color,
             samples: samples.isEmpty ? [0] : samples,
             stats: updatedStats

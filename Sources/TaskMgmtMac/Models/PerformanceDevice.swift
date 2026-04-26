@@ -138,19 +138,18 @@ struct PerformanceDevice: Identifiable, Hashable {
             id: "gpu0",
             kind: .gpu,
             title: "GPU 0",
-            subtitle: "NVIDIA GeForce RTX 5070 Ti",
-            valueText: "3% (41 C)",
+            subtitle: "GPU",
+            valueText: "0%",
             detailTitle: "GPU",
-            detailSubtitle: "NVIDIA GeForce RTX 5070 Ti",
+            detailSubtitle: "GPU",
             color: Color(red: 0.73, green: 0.52, blue: 0.91),
-            samples: [0, 0, 55, 0, 0, 0, 0, 1, 0, 2, 0, 0, 0, 4, 0, 0, 1, 0, 2, 3],
+            samples: Array(repeating: 0, count: 20),
             stats: [
-                PerformanceStat(label: "Utilization", value: "3%"),
-                PerformanceStat(label: "Dedicated GPU memory", value: "0.6/16.0 GB"),
-                PerformanceStat(label: "GPU Memory", value: "0.7/31.9 GB"),
-                PerformanceStat(label: "Shared GPU memory", value: "0.1/15.9 GB"),
-                PerformanceStat(label: "GPU Temperature", value: "41 C"),
-                PerformanceStat(label: "Driver version", value: "32.0.15.6094")
+                PerformanceStat(label: "Utilization", value: "0%"),
+                PerformanceStat(label: "GPU memory", value: "--"),
+                PerformanceStat(label: "Allocated memory", value: "--"),
+                PerformanceStat(label: "Memory type", value: "--"),
+                PerformanceStat(label: "GPU cores", value: "--")
             ]
         )
     ]

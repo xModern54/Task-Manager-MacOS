@@ -92,6 +92,8 @@ After completing every user task, always create a git commit.
 
 Commit messages should be short and describe the completed task.
 
+At the end of every completed user task, run `./Scripts/commit-and-push.sh "Short commit message"` so changed files are staged, committed, briefly delayed, and pushed to the configured remote repository.
+
 Do not commit `.build`, `.DS_Store`, DerivedData, or other local generated files.
 
 Before committing, check `git status --short`.

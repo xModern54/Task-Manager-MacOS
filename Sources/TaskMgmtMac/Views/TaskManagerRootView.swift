@@ -23,7 +23,9 @@ struct TaskManagerRootView: View {
                     PerformancePage(
                         summary: viewModel.snapshot.summary,
                         cpuHistory: viewModel.cpuHistory,
-                        memoryHistory: viewModel.memoryHistory
+                        memoryHistory: viewModel.memoryHistory,
+                        gpuSnapshot: viewModel.gpuSnapshot,
+                        gpuHistory: viewModel.gpuHistory
                     )
                 }
             }
