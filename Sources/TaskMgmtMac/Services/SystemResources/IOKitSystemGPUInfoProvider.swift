@@ -9,8 +9,12 @@ actor IOKitSystemGPUInfoProvider: SystemGPUInfoProviding {
         let registrySnapshot = Self.ioRegistrySnapshot(includeDetails: includeDetails)
 
         guard includeDetails else {
+            let deviceName = cachedDetails.name == SystemGPUSnapshot.unavailable.name
+                ? MTLCreateSystemDefaultDevice()?.name ?? cachedDetails.name
+                : cachedDetails.name
+
             return SystemGPUSnapshot(
-                name: cachedDetails.name,
+                name: deviceName,
                 usagePercent: registrySnapshot.usagePercent,
                 allocatedMemoryBytes: cachedDetails.allocatedMemoryBytes,
                 inUseMemoryBytes: cachedDetails.inUseMemoryBytes,

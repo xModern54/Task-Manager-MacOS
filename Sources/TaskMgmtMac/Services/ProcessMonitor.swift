@@ -6,6 +6,8 @@ actor ProcessMonitor: ProcessMonitoringProviding {
     private let memoryProvider: any SystemMemoryProviding
     private var previousCPUSamples: [Int: ProcessCPUSample] = [:]
     private var previousSystemCPUSample: SystemCPUSample?
+    private var previousProcessCount = 0
+    private var previousThreadCount = 0
 
     init(
         processProvider: SystemProcessProviding = LibprocSystemProcessProvider(),
@@ -48,6 +50,8 @@ actor ProcessMonitor: ProcessMonitoringProviding {
         }
 
         previousCPUSamples = nextCPUSamples
+        previousProcessCount = sample.processes.count
+        previousThreadCount = sample.processes.reduce(0) { $0 + $1.threadCount }
         previousSystemCPUSample = SystemCPUSample(
             timestampNanoseconds: sample.timestampNanoseconds,
             ticks: ProcessMonitor.systemCPUTicks()
@@ -63,8 +67,8 @@ actor ProcessMonitor: ProcessMonitoringProviding {
                 disk: 0,
                 network: 0,
                 gpu: 0,
-                processCount: sample.processes.count,
-                threadCount: sample.processes.reduce(0) { $0 + $1.threadCount }
+                processCount: previousProcessCount,
+                threadCount: previousThreadCount
             ),
             processes: metrics
         )
@@ -97,8 +101,8 @@ actor ProcessMonitor: ProcessMonitoringProviding {
                 disk: 0,
                 network: 0,
                 gpu: 0,
-                processCount: snapshotProcessCountFallback,
-                threadCount: 0
+                processCount: previousProcessCount,
+                threadCount: previousThreadCount
             ),
             processes: []
         )
@@ -118,10 +122,6 @@ actor ProcessMonitor: ProcessMonitoringProviding {
         let rawPercent = Double(processNanoseconds) / Double(elapsedNanoseconds) * 100
         let normalizedPercent = rawPercent / Double(sample.activeProcessorCount)
         return min(max(normalizedPercent, 0), 100)
-    }
-
-    private var snapshotProcessCountFallback: Int {
-        previousCPUSamples.count
     }
 
     private func systemCPUPercent(for sample: ProcessMonitorSummarySample) -> Int {
@@ -164,8 +164,8 @@ actor ProcessMonitor: ProcessMonitoringProviding {
         return SystemCPUTicks(
             user: UInt64(info.cpu_ticks.0),
             system: UInt64(info.cpu_ticks.1),
-            nice: UInt64(info.cpu_ticks.2),
-            idle: UInt64(info.cpu_ticks.3)
+            nice: UInt64(info.cpu_ticks.3),
+            idle: UInt64(info.cpu_ticks.2)
         )
     }
 }

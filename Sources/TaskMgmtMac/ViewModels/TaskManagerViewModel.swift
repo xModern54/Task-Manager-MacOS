@@ -59,6 +59,7 @@ final class TaskManagerViewModel: ObservableObject {
 
     func refresh() async {
         let shouldCollectProcessList = selectedSection == .processes
+            || (selectedSection == .devices && selectedPerformanceDeviceID == "cpu")
         let shouldCollectPerformanceSamples = selectedSection == .devices
 
         async let monitoredSnapshot = monitor.currentSnapshot(includesProcesses: shouldCollectProcessList)
@@ -84,7 +85,9 @@ final class TaskManagerViewModel: ObservableObject {
             appendDiskHistoryValue(Double(nextDiskSnapshot.activePercent))
         }
 
-        if let selectedProcessID, !nextSnapshot.processes.contains(where: { $0.id == selectedProcessID }) {
+        if shouldCollectProcessList,
+           let selectedProcessID,
+           !nextSnapshot.processes.contains(where: { $0.id == selectedProcessID }) {
             self.selectedProcessID = nil
         }
     }
