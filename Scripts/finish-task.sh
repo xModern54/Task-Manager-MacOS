@@ -14,7 +14,7 @@ executable="$repo_root/.build/debug/TaskMgmtMac"
 helper_executable="$repo_root/.build/debug/TaskMgmtMacPrivilegedSensorHelper"
 helper_plist_source="$repo_root/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedSensorHelper.plist"
 plist="$app_dir/Contents/Info.plist"
-helper_bundle_id="com.xmodern.TaskMgmtMac.PrivilegedSensorHelper"
+helper_codesign_id="com.xmodern.TaskMgmtMac"
 remote_name="${GIT_REMOTE_NAME:-origin}"
 remote_url="${GIT_REMOTE_URL:-https://github.com/xModern54/Task-Manager-MacOS.git}"
 push_delay_seconds="${GIT_PUSH_DELAY_SECONDS:-1}"
@@ -82,7 +82,7 @@ if [ -z "$sign_identity" ]; then
     sign_identity="-"
 fi
 
-run_quietly "codesign helper" codesign --force --sign "$sign_identity" --identifier "$helper_bundle_id" "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
+run_quietly "codesign helper" codesign --force --sign "$sign_identity" --identifier "$helper_codesign_id" "$app_dir/Contents/MacOS/TaskMgmtMacPrivilegedSensorHelper"
 run_quietly "codesign app" codesign --force --sign "$sign_identity" "$app_dir"
 
 open "$app_dir"
