@@ -1,6 +1,13 @@
 import SwiftUI
 
 struct SettingsPage: View {
+    @State private var launchAsRoot = RootLaunchManager.isRunningAsRoot
+    @State private var refreshInterval = 0.5
+    @State private var showCompactGraphs = true
+    @State private var selectedTheme = SettingsTheme.system
+    @State private var accentFollowsSystem = true
+    @State private var reduceAnimations = false
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -18,26 +25,49 @@ struct SettingsPage: View {
                     .frame(height: 1)
             }
 
-            VStack(alignment: .leading, spacing: 16) {
-                SettingsSection(title: "General") {
-                    SettingsStaticRow(label: "Run mode", value: RootLaunchManager.isRunningAsRoot ? "Root" : "User")
-                    SettingsStaticRow(label: "Refresh interval", value: "0.5 seconds")
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    SettingsSection(title: "General") {
+                        SettingsToggleRow(
+                            label: "Launch as root",
+                            value: $launchAsRoot,
+                            secondaryText: RootLaunchManager.isRunningAsRoot ? "Active" : "Inactive"
+                        )
+                        SettingsStepperRow(
+                            label: "Refresh interval",
+                            value: $refreshInterval,
+                            range: 0.5...5,
+                            step: 0.5,
+                            formattedValue: "\(String(format: "%.1f", refreshInterval)) seconds"
+                        )
+                        SettingsToggleRow(label: "Compact performance graphs", value: $showCompactGraphs)
+                    }
 
-                SettingsSection(title: "Appearance") {
-                    SettingsStaticRow(label: "Theme", value: "System")
-                    SettingsStaticRow(label: "Accent color", value: "macOS")
-                }
+                    SettingsSection(title: "Appearance") {
+                        SettingsPickerRow(label: "Theme", selection: $selectedTheme)
+                        SettingsToggleRow(label: "Use macOS accent color", value: $accentFollowsSystem)
+                        SettingsToggleRow(label: "Reduce sidebar animations", value: $reduceAnimations)
+                    }
 
-                Spacer()
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 22)
+                .padding(.bottom, 28)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .padding(.horizontal, 22)
-            .padding(.top, 22)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(WindowsTaskManagerTheme.table)
         }
         .background(WindowsTaskManagerTheme.content)
     }
+}
+
+private enum SettingsTheme: String, CaseIterable, Identifiable {
+    case system = "System"
+    case light = "Light"
+    case dark = "Dark"
+
+    var id: Self { self }
 }
 
 private struct SettingsSection<Content: View>: View {
@@ -53,6 +83,7 @@ private struct SettingsSection<Content: View>: View {
             VStack(spacing: 0) {
                 content
             }
+            .frame(maxWidth: .infinity)
             .background(WindowsTaskManagerTheme.content)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
@@ -60,26 +91,92 @@ private struct SettingsSection<Content: View>: View {
                     .stroke(WindowsTaskManagerTheme.separator, lineWidth: 1)
             }
         }
-        .frame(width: 420, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct SettingsStaticRow: View {
+private struct SettingsToggleRow: View {
     let label: String
-    let value: String
+    @Binding var value: Bool
+    var secondaryText: String?
 
     var body: some View {
-        HStack {
+        SettingsRowContainer {
             Text(label)
                 .taskManagerFont(13)
 
             Spacer()
 
-            Text(value)
-                .taskManagerFont(13)
-                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+            if let secondaryText {
+                Text(secondaryText)
+                    .taskManagerFont(12)
+                    .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+            }
+
+            Toggle("", isOn: $value)
+                .labelsHidden()
+                .toggleStyle(.switch)
         }
-        .frame(height: 38)
+    }
+}
+
+private struct SettingsStepperRow: View {
+    let label: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let formattedValue: String
+
+    var body: some View {
+        SettingsRowContainer {
+            Text(label)
+                .taskManagerFont(13)
+
+            Spacer()
+
+            Text(formattedValue)
+                .taskManagerFont(12)
+                .monospacedDigit()
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+                .frame(width: 86, alignment: .trailing)
+
+            Stepper("", value: $value, in: range, step: step)
+                .labelsHidden()
+        }
+    }
+}
+
+private struct SettingsPickerRow: View {
+    let label: String
+    @Binding var selection: SettingsTheme
+
+    var body: some View {
+        SettingsRowContainer {
+            Text(label)
+                .taskManagerFont(13)
+
+            Spacer()
+
+            Picker("", selection: $selection) {
+                ForEach(SettingsTheme.allCases) { theme in
+                    Text(theme.rawValue).tag(theme)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(width: 210)
+        }
+    }
+}
+
+private struct SettingsRowContainer<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(spacing: 12) {
+            content
+        }
+        .frame(minHeight: 44)
         .padding(.horizontal, 14)
         .overlay(alignment: .bottom) {
             Rectangle()
@@ -87,5 +184,6 @@ private struct SettingsStaticRow: View {
                 .frame(height: 1)
                 .padding(.leading, 14)
         }
+        .contentShape(Rectangle())
     }
 }
