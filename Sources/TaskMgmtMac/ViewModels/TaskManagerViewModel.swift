@@ -39,6 +39,7 @@ final class TaskManagerViewModel: ObservableObject {
     private let npuInfoProvider: any SystemNPUInfoProviding
     private let batteryInfoProvider: any SystemBatteryInfoProviding
     private let cpuSensorProvider: any SystemCPUSensorProviding
+    private var immediateRefreshTask: Task<Void, Never>?
 
     init(
         monitor: ProcessMonitoringProviding,
@@ -248,6 +249,8 @@ final class TaskManagerViewModel: ObservableObject {
         let nextNPUSnapshot = await currentNPUSnapshot
         let nextBatterySnapshot = await currentBatterySnapshot
 
+        guard !Task.isCancelled else { return }
+
         snapshot = nextSnapshot
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
         appendMemoryHistoryValue(Double(nextSnapshot.summary.memory))
@@ -288,6 +291,13 @@ final class TaskManagerViewModel: ObservableObject {
             } catch {
                 break
             }
+        }
+    }
+
+    func requestImmediateRefresh() {
+        immediateRefreshTask?.cancel()
+        immediateRefreshTask = Task(priority: .userInitiated) { [weak self] in
+            await self?.refresh()
         }
     }
 

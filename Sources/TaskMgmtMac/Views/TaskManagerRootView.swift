@@ -54,5 +54,13 @@ struct TaskManagerRootView: View {
         .onChange(of: settings.refreshInterval) { _, newInterval in
             viewModel.setRefreshInterval(newInterval)
         }
+        .onChange(of: viewModel.selectedSection) { _, newSection in
+            guard newSection == .devices else { return }
+            viewModel.requestImmediateRefresh()
+        }
+        .onChange(of: viewModel.selectedPerformanceDeviceID) { _, _ in
+            guard viewModel.selectedSection == .devices else { return }
+            viewModel.requestImmediateRefresh()
+        }
     }
 }
