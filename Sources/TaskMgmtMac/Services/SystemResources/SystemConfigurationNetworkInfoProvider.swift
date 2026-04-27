@@ -43,6 +43,10 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
             return .empty
         }
 
+        guard previousCounters.interfaceName == current.interfaceName else {
+            return .empty
+        }
+
         let elapsedSeconds = max(Double(current.timestampNanoseconds - previousCounters.timestampNanoseconds) / 1_000_000_000, 0)
         guard elapsedSeconds > 0 else {
             return .empty
@@ -65,8 +69,14 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
 
         let timestamp = DispatchTime.now().uptimeNanoseconds
         let interfaceCounters = interfaceCounters()
-        let wifiDetails = includeDetails ? activeWiFiDetails() : nil
-        let selectedInterfaceName = wifiDetails?.interfaceName ?? primary.interfaceName
+        let activeWiFiInterfaceName = activeWiFiInterfaceName()
+        let selectedInterfaceName = activeWiFiInterfaceName ?? primary.interfaceName
+        let selectedWiFiDetails: WiFiDetails?
+        if includeDetails, let activeWiFiInterfaceName {
+            selectedWiFiDetails = wifiDetails(interfaceName: activeWiFiInterfaceName)
+        } else {
+            selectedWiFiDetails = nil
+        }
         let counters = interfaceCounters[selectedInterfaceName]
         let networkCounters = counters.map {
             NetworkCounters(
@@ -78,21 +88,22 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
         }
 
         let serviceName = configuredServiceName(store: store, serviceID: primary.serviceID)
-        let selectedServiceName = wifiDetails == nil ? serviceName : configuredServiceName(store: store, interfaceName: selectedInterfaceName) ?? "Wi-Fi"
-        let selectedServiceID = wifiDetails == nil ? primary.serviceID : configuredServiceID(store: store, interfaceName: selectedInterfaceName) ?? primary.serviceID
+        let isWiFiSelected = activeWiFiInterfaceName != nil
+        let selectedServiceName = isWiFiSelected ? configuredServiceName(store: store, interfaceName: selectedInterfaceName) ?? "Wi-Fi" : serviceName
+        let selectedServiceID = isWiFiSelected ? configuredServiceID(store: store, interfaceName: selectedInterfaceName) ?? primary.serviceID : primary.serviceID
         let dns = includeDetails ? dnsInfo(store: store, serviceID: selectedServiceID) : ("--", [])
         let details = NetworkDetails(
             interfaceName: selectedInterfaceName,
             adapterName: selectedServiceName ?? selectedInterfaceName,
-            connectionType: wifiDetails == nil ? connectionType(for: selectedInterfaceName, serviceName: serviceName) : "Wi-Fi",
+            connectionType: isWiFiSelected ? "Wi-Fi" : connectionType(for: selectedInterfaceName, serviceName: serviceName),
             dnsName: dns.0,
             ipv4Address: counters?.ipv4Address ?? "--",
-            wifiRSSI: wifiDetails?.rssi,
-            wifiNoise: wifiDetails?.noise,
-            wifiChannel: wifiDetails?.channel,
-            wifiBand: wifiDetails?.band,
-            wifiChannelWidth: wifiDetails?.width,
-            wifiFrequency: wifiDetails?.frequency
+            wifiRSSI: selectedWiFiDetails?.rssi,
+            wifiNoise: selectedWiFiDetails?.noise,
+            wifiChannel: selectedWiFiDetails?.channel,
+            wifiBand: selectedWiFiDetails?.band,
+            wifiChannelWidth: selectedWiFiDetails?.width,
+            wifiFrequency: selectedWiFiDetails?.frequency
         )
 
         return NetworkSample(counters: networkCounters, details: details)
@@ -188,7 +199,7 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
         return interfaceName
     }
 
-    private static func activeWiFiDetails() -> WiFiDetails? {
+    private static func activeWiFiInterfaceName() -> String? {
         guard let interfaces = CWWiFiClient.shared().interfaces() else {
             return nil
         }
@@ -200,7 +211,7 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
                 continue
             }
 
-            return wifiDetails(interfaceName: interfaceName)
+            return interfaceName
         }
 
         return nil
