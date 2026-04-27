@@ -29,9 +29,8 @@ struct ProcessesPage: View {
                     selectedProcessID: $viewModel.selectedProcessID,
                     selectedProcessGroupID: $viewModel.selectedProcessGroupID,
                     onSort: viewModel.sort(by:),
-                    onToggleGroup: viewModel.toggleProcessGroupExpansion(_:),
                     onSelectProcess: viewModel.selectProcess(_:),
-                    onSelectGroup: viewModel.selectProcessGroup(_:)
+                    onGroupTap: viewModel.selectAndToggleProcessGroup(_:)
                 )
             } else {
                 WindowsTaskManagerTheme.table

@@ -9,8 +9,12 @@ final class ProcessIconCache {
 
     private init() {}
 
+    func cachedIcon(pid: Int, executablePath: String?) -> NSImage? {
+        icons[cacheKey(pid: pid, executablePath: executablePath)]
+    }
+
     func icon(pid: Int, executablePath: String?) -> NSImage {
-        let cacheKey = "\(pid):\(executablePath ?? "")"
+        let cacheKey = cacheKey(pid: pid, executablePath: executablePath)
         if let cachedIcon = icons[cacheKey] {
             return cachedIcon
         }
@@ -19,6 +23,10 @@ final class ProcessIconCache {
         icon.size = NSSize(width: 18, height: 18)
         icons[cacheKey] = icon
         return icon
+    }
+
+    private func cacheKey(pid: Int, executablePath: String?) -> String {
+        "\(pid):\(executablePath ?? "")"
     }
 
     private func loadIcon(pid: Int, executablePath: String?) -> NSImage {

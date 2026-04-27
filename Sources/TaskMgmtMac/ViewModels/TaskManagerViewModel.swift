@@ -209,9 +209,10 @@ final class TaskManagerViewModel: ObservableObject {
         selectedProcessGroupID = nil
     }
 
-    func selectProcessGroup(_ groupID: ProcessTableRow.ID) {
+    func selectAndToggleProcessGroup(_ groupID: ProcessTableRow.ID) {
         selectedProcessGroupID = groupID
         selectedProcessID = nil
+        toggleProcessGroupExpansion(groupID)
     }
 
     func refresh() async {

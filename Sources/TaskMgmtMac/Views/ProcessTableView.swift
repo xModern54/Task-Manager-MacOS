@@ -8,9 +8,8 @@ struct ProcessTableView: View {
     @Binding var selectedProcessID: ProcessMetric.ID?
     @Binding var selectedProcessGroupID: ProcessTableRow.ID?
     let onSort: (ProcessSortColumn) -> Void
-    let onToggleGroup: (ProcessTableRow.ID) -> Void
     let onSelectProcess: (ProcessMetric.ID) -> Void
-    let onSelectGroup: (ProcessTableRow.ID) -> Void
+    let onGroupTap: (ProcessTableRow.ID) -> Void
 
     var body: some View {
         ScrollView(.vertical) {
@@ -29,10 +28,7 @@ struct ProcessTableView: View {
                     )
                     .onTapGesture {
                         if row.isGroup {
-                            onSelectGroup(row.id)
-                            withAnimation(.easeInOut(duration: 0.14)) {
-                                onToggleGroup(row.id)
-                            }
+                            onGroupTap(row.id)
                         } else {
                             onSelectProcess(row.metric.id)
                         }
@@ -288,14 +284,38 @@ private struct ProcessDisclosureIcon: View {
 
 private struct ProcessIconView: View {
     let process: ProcessMetric
+    @State private var icon: NSImage?
 
     var body: some View {
-        Image(nsImage: ProcessIconCache.shared.icon(pid: process.pid, executablePath: process.executablePath))
-            .resizable()
-            .interpolation(.high)
-            .aspectRatio(contentMode: .fit)
-            .frame(width: 18, height: 18)
-            .accessibilityHidden(true)
+        Group {
+            if let icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .interpolation(.high)
+            } else {
+                Image(systemName: process.iconSystemName)
+                    .resizable()
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+            }
+        }
+        .aspectRatio(contentMode: .fit)
+        .frame(width: 18, height: 18)
+        .accessibilityHidden(true)
+        .task(id: iconTaskID) {
+            if let cachedIcon = ProcessIconCache.shared.cachedIcon(pid: process.pid, executablePath: process.executablePath) {
+                icon = cachedIcon
+                return
+            }
+
+            icon = nil
+            await Task.yield()
+            icon = ProcessIconCache.shared.icon(pid: process.pid, executablePath: process.executablePath)
+        }
+    }
+
+    private var iconTaskID: String {
+        "\(process.pid):\(process.executablePath ?? "")"
     }
 }
 
