@@ -10,6 +10,7 @@ final class ProcessIconCache: ObservableObject {
 
     private var icons: [String: NSImage] = [:]
     private var warmupTask: Task<Void, Never>?
+    private var pendingRequests: [IconRequest] = []
 
     private init() {}
 
@@ -38,7 +39,10 @@ final class ProcessIconCache: ObservableObject {
             return IconRequest(pid: process.pid, executablePath: process.executablePath)
         }
 
-        guard !requests.isEmpty, warmupTask == nil else { return }
+        guard !requests.isEmpty else { return }
+
+        pendingRequests.append(contentsOf: requests)
+        guard warmupTask == nil else { return }
 
         warmupTask = Task(priority: .utility) { [weak self] in
             guard let self else { return }
@@ -47,8 +51,9 @@ final class ProcessIconCache: ObservableObject {
             }
 
             var loadedCount = 0
-            for request in requests {
+            while !pendingRequests.isEmpty {
                 guard !Task.isCancelled else { return }
+                let request = pendingRequests.removeFirst()
                 guard cachedIcon(pid: request.pid, executablePath: request.executablePath) == nil else {
                     continue
                 }
@@ -70,10 +75,10 @@ final class ProcessIconCache: ObservableObject {
 
     private func cacheKey(pid: Int, executablePath: String?) -> String {
         guard let executablePath else {
-            return "\(pid):"
+            return "pid:\(pid)"
         }
 
-        return "\(pid):\(iconPath(forExecutablePath: executablePath))"
+        return "path:\(iconPath(forExecutablePath: executablePath))"
     }
 
     private func loadIcon(pid: Int, executablePath: String?) -> NSImage {

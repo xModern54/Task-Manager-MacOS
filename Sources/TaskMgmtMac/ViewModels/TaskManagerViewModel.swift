@@ -341,7 +341,9 @@ final class TaskManagerViewModel: ObservableObject {
     }
 
     private func rebuildVisibleProcessRows() {
-        visibleProcessRows = makeVisibleProcessRows(from: snapshot.processes)
+        let rows = makeVisibleProcessRows(from: snapshot.processes)
+        visibleProcessRows = rows
+        ProcessIconCache.shared.warmIcons(for: rows.filter(\.isGroup).map(\.metric))
     }
 
     private func appendCPUHistoryValue(_ value: Double) {
