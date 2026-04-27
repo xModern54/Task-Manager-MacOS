@@ -30,7 +30,8 @@ struct ProcessesPage: View {
                     selectedProcessGroupID: $viewModel.selectedProcessGroupID,
                     onSort: viewModel.sort(by:),
                     onSelectProcess: viewModel.selectProcess(_:),
-                    onGroupTap: viewModel.selectAndToggleProcessGroup(_:)
+                    onGroupTap: viewModel.selectAndToggleProcessGroup(_:),
+                    onScrollActivity: viewModel.setProcessTableScrolling(_:)
                 )
             } else {
                 WindowsTaskManagerTheme.table

@@ -1,3 +1,4 @@
+@preconcurrency import AppKit
 import SwiftUI
 
 struct ProcessTableView: View {
@@ -10,6 +11,9 @@ struct ProcessTableView: View {
     let onSort: (ProcessSortColumn) -> Void
     let onSelectProcess: (ProcessMetric.ID) -> Void
     let onGroupTap: (ProcessTableRow.ID) -> Void
+    let onScrollActivity: (Bool) -> Void
+    @State private var displayedRows: [ProcessTableRow] = []
+    @State private var isScrolling = false
 
     var body: some View {
         ScrollView(.vertical) {
@@ -21,7 +25,7 @@ struct ProcessTableView: View {
                     onSort: onSort
                 )
 
-                ForEach(rows) { row in
+                ForEach(visibleRows) { row in
                     ProcessRow(
                         row: row,
                         isSelected: row.isGroup ? selectedProcessGroupID == row.id : selectedProcessID == row.metric.id
@@ -40,6 +44,31 @@ struct ProcessTableView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .scrollIndicators(.visible)
         .background(WindowsTaskManagerTheme.table)
+        .background(
+            ScrollActivityReader { scrolling in
+                onScrollActivity(scrolling)
+                if scrolling {
+                    if !isScrolling {
+                        displayedRows = rows
+                    }
+                    isScrolling = true
+                } else {
+                    isScrolling = false
+                    displayedRows = rows
+                }
+            }
+        )
+        .onAppear {
+            displayedRows = rows
+        }
+        .onChange(of: rows) { _, newRows in
+            guard !isScrolling else { return }
+            displayedRows = newRows
+        }
+    }
+
+    private var visibleRows: [ProcessTableRow] {
+        displayedRows.isEmpty ? rows : displayedRows
     }
 }
 
@@ -284,10 +313,11 @@ private struct ProcessDisclosureIcon: View {
 
 private struct ProcessIconView: View {
     let process: ProcessMetric
+    @ObservedObject private var iconCache = ProcessIconCache.shared
 
     var body: some View {
         Group {
-            if let icon = ProcessIconCache.shared.cachedIcon(pid: process.pid, executablePath: process.executablePath) {
+            if let icon = iconCache.cachedIcon(pid: process.pid, executablePath: process.executablePath) {
                 Image(nsImage: icon)
                     .resizable()
                     .interpolation(.high)
@@ -341,5 +371,88 @@ private struct CellSeparator: View {
         Rectangle()
             .fill(WindowsTaskManagerTheme.separator)
             .frame(width: 1)
+    }
+}
+
+private struct ScrollActivityReader: NSViewRepresentable {
+    let onActivityChanged: (Bool) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+
+        DispatchQueue.main.async {
+            context.coordinator.attach(to: view)
+        }
+
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onActivityChanged = onActivityChanged
+        DispatchQueue.main.async {
+            context.coordinator.attach(to: nsView)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onActivityChanged: onActivityChanged)
+    }
+
+    @MainActor
+    final class Coordinator {
+        var onActivityChanged: (Bool) -> Void
+        private weak var scrollView: NSScrollView?
+        private var observer: NSObjectProtocol?
+        private var stopTask: Task<Void, Never>?
+        private var isScrolling = false
+
+        init(onActivityChanged: @escaping (Bool) -> Void) {
+            self.onActivityChanged = onActivityChanged
+        }
+
+        deinit {
+            if let observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            stopTask?.cancel()
+        }
+
+        func attach(to view: NSView) {
+            guard let scrollView = view.enclosingScrollView,
+                  self.scrollView !== scrollView else {
+                return
+            }
+
+            if let observer {
+                NotificationCenter.default.removeObserver(observer)
+            }
+
+            self.scrollView = scrollView
+            scrollView.contentView.postsBoundsChangedNotifications = true
+            observer = NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: scrollView.contentView,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.markScrolling()
+                }
+            }
+        }
+
+        private func markScrolling() {
+            if !isScrolling {
+                isScrolling = true
+                onActivityChanged(true)
+            }
+
+            stopTask?.cancel()
+            stopTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(180))
+                guard let self, !Task.isCancelled else { return }
+                isScrolling = false
+                onActivityChanged(false)
+            }
+        }
     }
 }

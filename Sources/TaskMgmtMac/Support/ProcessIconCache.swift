@@ -1,9 +1,12 @@
 import AppKit
+import Combine
 import Foundation
 
 @MainActor
-final class ProcessIconCache {
+final class ProcessIconCache: ObservableObject {
     static let shared = ProcessIconCache()
+
+    @Published private(set) var generation = 0
 
     private var icons: [String: NSImage] = [:]
     private var warmupTask: Task<Void, Never>?
@@ -54,14 +57,23 @@ final class ProcessIconCache {
                 loadedCount += 1
 
                 if loadedCount.isMultiple(of: 6) {
+                    generation += 1
                     try? await Task.sleep(for: .milliseconds(12))
                 }
+            }
+
+            if loadedCount > 0 {
+                generation += 1
             }
         }
     }
 
     private func cacheKey(pid: Int, executablePath: String?) -> String {
-        "\(pid):\(executablePath ?? "")"
+        guard let executablePath else {
+            return "\(pid):"
+        }
+
+        return "\(pid):\(iconPath(forExecutablePath: executablePath))"
     }
 
     private func loadIcon(pid: Int, executablePath: String?) -> NSImage {

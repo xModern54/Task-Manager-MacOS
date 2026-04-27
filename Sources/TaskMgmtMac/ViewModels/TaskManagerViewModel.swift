@@ -8,7 +8,11 @@ final class TaskManagerViewModel: ObservableObject {
         processes: []
     )
     @Published var selectedSection: TaskManagerSection = .processes
-    @Published var searchText = ""
+    @Published var searchText = "" {
+        didSet {
+            rebuildVisibleProcessRows()
+        }
+    }
     @Published var selectedProcessID: ProcessMetric.ID?
     @Published var selectedProcessGroupID: ProcessTableRow.ID?
     @Published var expandedProcessGroupIDs: Set<String> = []
@@ -28,6 +32,7 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var batteryHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var batterySnapshot = SystemBatterySnapshot.unavailable
     @Published private(set) var cpuSensorSnapshot = SystemCPUSensorSnapshot.unavailable
+    @Published private(set) var visibleProcessRows: [ProcessTableRow] = []
     @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
 
     private let historyLimit = 60
@@ -40,6 +45,7 @@ final class TaskManagerViewModel: ObservableObject {
     private let batteryInfoProvider: any SystemBatteryInfoProviding
     private let cpuSensorProvider: any SystemCPUSensorProviding
     private var immediateRefreshTask: Task<Void, Never>?
+    private var isProcessTableScrolling = false
 
     init(
         monitor: ProcessMonitoringProviding,
@@ -59,18 +65,8 @@ final class TaskManagerViewModel: ObservableObject {
         self.cpuSensorProvider = cpuSensorProvider
     }
 
-    var visibleProcesses: [ProcessMetric] {
-        filteredProcesses.sorted { lhs, rhs in
-            sortDirection.areInIncreasingOrder(
-                sortColumn.value(for: lhs),
-                sortColumn.value(for: rhs),
-                fallback: lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            )
-        }
-    }
-
-    var visibleProcessRows: [ProcessTableRow] {
-        let groups = Dictionary(grouping: filteredProcesses) { process in
+    private func makeVisibleProcessRows(from processes: [ProcessMetric]) -> [ProcessTableRow] {
+        let groups = Dictionary(grouping: filteredProcesses(from: processes)) { process in
             processAppGroup(for: process)
         }
 
@@ -125,13 +121,13 @@ final class TaskManagerViewModel: ObservableObject {
         }
     }
 
-    private var filteredProcesses: [ProcessMetric] {
+    private func filteredProcesses(from processes: [ProcessMetric]) -> [ProcessMetric] {
         let filteredProcesses: [ProcessMetric]
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if query.isEmpty {
-            filteredProcesses = snapshot.processes
+            filteredProcesses = processes
         } else {
-            filteredProcesses = snapshot.processes.filter {
+            filteredProcesses = processes.filter {
                 $0.name.localizedCaseInsensitiveContains(query)
                     || String($0.pid).contains(query)
             }
@@ -255,6 +251,9 @@ final class TaskManagerViewModel: ObservableObject {
         snapshot = nextSnapshot
         if shouldCollectProcessList {
             ProcessIconCache.shared.warmIcons(for: nextSnapshot.processes)
+            if !isProcessTableScrolling {
+                rebuildVisibleProcessRows()
+            }
         }
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
         appendMemoryHistoryValue(Double(nextSnapshot.summary.memory))
@@ -309,12 +308,22 @@ final class TaskManagerViewModel: ObservableObject {
         refreshInterval = interval.duration
     }
 
+    func setProcessTableScrolling(_ isScrolling: Bool) {
+        guard isProcessTableScrolling != isScrolling else { return }
+
+        isProcessTableScrolling = isScrolling
+        if !isScrolling {
+            rebuildVisibleProcessRows()
+        }
+    }
+
     func toggleProcessGroupExpansion(_ groupID: String) {
         if expandedProcessGroupIDs.contains(groupID) {
             expandedProcessGroupIDs.remove(groupID)
         } else {
             expandedProcessGroupIDs.insert(groupID)
         }
+        rebuildVisibleProcessRows()
     }
 
     func toggleSidebar() {
@@ -328,6 +337,11 @@ final class TaskManagerViewModel: ObservableObject {
             sortColumn = column
             sortDirection = .descending
         }
+        rebuildVisibleProcessRows()
+    }
+
+    private func rebuildVisibleProcessRows() {
+        visibleProcessRows = makeVisibleProcessRows(from: snapshot.processes)
     }
 
     private func appendCPUHistoryValue(_ value: Double) {
