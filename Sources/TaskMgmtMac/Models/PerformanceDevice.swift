@@ -113,7 +113,8 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "GPU memory", value: "--"),
                 PerformanceStat(label: "Allocated memory", value: "--"),
                 PerformanceStat(label: "Memory type", value: "--"),
-                PerformanceStat(label: "GPU cores", value: "--")
+                PerformanceStat(label: "GPU cores", value: "--"),
+                PerformanceStat(label: "GPU power", value: "--")
             ]
         ),
         PerformanceDevice(
@@ -140,7 +141,8 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Max charge", value: "--"),
                 PerformanceStat(label: "Level", value: "--"),
                 PerformanceStat(label: "Time to full", value: "--"),
-                PerformanceStat(label: "Adapter", value: "--")
+                PerformanceStat(label: "Adapter", value: "--"),
+                PerformanceStat(label: "Package power", value: "--")
             ]
         ),
         PerformanceDevice(

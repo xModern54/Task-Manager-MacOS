@@ -50,7 +50,8 @@ struct PerformancePage: View {
             } else if device.kind == .gpu {
                 return device.updatingGPUStats(
                     from: gpuSnapshot,
-                    samples: gpuHistory
+                    samples: gpuHistory,
+                    sensorSnapshot: cpuSensorSnapshot
                 )
             } else if device.kind == .disk {
                 return device.updatingDiskStats(
@@ -71,7 +72,8 @@ struct PerformancePage: View {
                 guard batterySnapshot.isPresent else { return nil }
                 return device.updatingBatteryStats(
                     from: batterySnapshot,
-                    samples: batteryHistory
+                    samples: batteryHistory,
+                    sensorSnapshot: cpuSensorSnapshot
                 )
             }
 
@@ -495,8 +497,6 @@ private extension PerformanceDevice {
             PerformanceStat(label: "Temperature", value: formattedTemperature(sensorSnapshot.temperatureCelsius)),
             PerformanceStat(label: "Package power", value: formattedWatts(sensorSnapshot.combinedPowerWatts)),
             PerformanceStat(label: "CPU power", value: formattedWatts(sensorSnapshot.cpuPowerWatts)),
-            PerformanceStat(label: "GPU power", value: formattedWatts(sensorSnapshot.gpuPowerWatts)),
-            PerformanceStat(label: "ANE power", value: formattedWatts(sensorSnapshot.anePowerWatts)),
             PerformanceStat(label: "Thermal pressure", value: sensorSnapshot.thermalPressure),
             PerformanceStat(label: "Sensor error", value: sensorSnapshot.lastError ?? "--")
         ]
@@ -574,7 +574,8 @@ private extension PerformanceDevice {
 
     func updatingGPUStats(
         from snapshot: SystemGPUSnapshot,
-        samples: [Double]
+        samples: [Double],
+        sensorSnapshot: SystemCPUSensorSnapshot
     ) -> PerformanceDevice {
         guard kind == .gpu else { return self }
 
@@ -590,6 +591,8 @@ private extension PerformanceDevice {
                 PerformanceStat(label: stat.label, value: snapshot.hasUnifiedMemory ? "Unified" : "Dedicated")
             case "GPU cores":
                 PerformanceStat(label: stat.label, value: snapshot.coreCount.map(String.init) ?? "--")
+            case "GPU power":
+                PerformanceStat(label: stat.label, value: formattedWatts(sensorSnapshot.gpuPowerWatts))
             default:
                 stat
             }
@@ -739,7 +742,8 @@ private extension PerformanceDevice {
 
     func updatingBatteryStats(
         from snapshot: SystemBatterySnapshot,
-        samples: [Double]
+        samples: [Double],
+        sensorSnapshot: SystemCPUSensorSnapshot
     ) -> PerformanceDevice {
         guard kind == .battery else { return self }
 
@@ -778,6 +782,8 @@ private extension PerformanceDevice {
                 PerformanceStat(label: stat.label, value: formattedMinutes(snapshot.timeToFullMinutes))
             case "Adapter":
                 PerformanceStat(label: stat.label, value: adapterText)
+            case "Package power":
+                PerformanceStat(label: stat.label, value: formattedWatts(sensorSnapshot.combinedPowerWatts))
             default:
                 stat
             }

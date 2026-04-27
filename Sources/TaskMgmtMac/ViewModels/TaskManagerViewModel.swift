@@ -111,11 +111,11 @@ final class TaskManagerViewModel: ObservableObject {
         let shouldCollectProcessList = selectedSection == .processes
             || (selectedSection == .devices && selectedPerformanceDeviceID == "cpu")
         let shouldCollectPerformanceSamples = selectedSection == .devices
-        let shouldCollectCPUSensors = selectedSection == .devices
-            && selectedPerformanceDeviceID == "cpu"
+        let shouldCollectPowerSensors = selectedSection == .devices
+            && ["cpu", "gpu0", "battery0"].contains(selectedPerformanceDeviceID)
 
         async let monitoredSnapshot = monitor.currentSnapshot(includesProcesses: shouldCollectProcessList)
-        async let currentCPUSensorSnapshot = shouldCollectCPUSensors
+        async let currentCPUSensorSnapshot = shouldCollectPowerSensors
             ? cpuSensorProvider.snapshot(includeDetails: true)
             : cpuSensorProvider.snapshot(includeDetails: false)
         async let currentGPUSnapshot = shouldCollectPerformanceSamples
