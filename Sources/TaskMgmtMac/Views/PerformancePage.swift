@@ -675,6 +675,14 @@ private extension PerformanceDevice {
                 PerformanceStat(label: stat.label, value: snapshot.connectionType)
             case "IPv4 address":
                 PerformanceStat(label: stat.label, value: snapshot.ipv4Address)
+            case "RSSI":
+                PerformanceStat(label: stat.label, value: formattedDecibelsMilliwatt(snapshot.wifiRSSI))
+            case "Noise":
+                PerformanceStat(label: stat.label, value: formattedDecibelsMilliwatt(snapshot.wifiNoise))
+            case "Channel":
+                PerformanceStat(label: stat.label, value: formattedWiFiChannel(snapshot))
+            case "Frequency":
+                PerformanceStat(label: stat.label, value: snapshot.wifiFrequency ?? "--")
             default:
                 stat
             }
@@ -845,6 +853,28 @@ private func formattedNetworkRate(_ bytesPerSecond: UInt64) -> String {
     }
 
     return "\(Int(bitsPerSecond.rounded())) bps"
+}
+
+private func formattedDecibelsMilliwatt(_ value: Int?) -> String {
+    guard let value else {
+        return "--"
+    }
+
+    return "\(value) dBm"
+}
+
+private func formattedWiFiChannel(_ snapshot: SystemNetworkSnapshot) -> String {
+    guard let channel = snapshot.wifiChannel else {
+        return "--"
+    }
+
+    let parts = [
+        String(channel),
+        snapshot.wifiBand,
+        snapshot.wifiChannelWidth
+    ].compactMap { $0 }.filter { $0 != "--" }
+
+    return parts.joined(separator: " / ")
 }
 
 private func normalizedNetworkSamples(_ samples: [Double]) -> [Double] {

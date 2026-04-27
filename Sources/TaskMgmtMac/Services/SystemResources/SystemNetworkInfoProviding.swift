@@ -12,6 +12,12 @@ struct SystemNetworkSnapshot: Sendable {
     let ipv4Address: String
     let sentBytesPerSecond: UInt64
     let receivedBytesPerSecond: UInt64
+    let wifiRSSI: Int?
+    let wifiNoise: Int?
+    let wifiChannel: Int?
+    let wifiBand: String?
+    let wifiChannelWidth: String?
+    let wifiFrequency: String?
 
     var throughputBytesPerSecond: UInt64 {
         sentBytesPerSecond + receivedBytesPerSecond
@@ -24,6 +30,12 @@ struct SystemNetworkSnapshot: Sendable {
         dnsName: "--",
         ipv4Address: "--",
         sentBytesPerSecond: 0,
-        receivedBytesPerSecond: 0
+        receivedBytesPerSecond: 0,
+        wifiRSSI: nil,
+        wifiNoise: nil,
+        wifiChannel: nil,
+        wifiBand: nil,
+        wifiChannelWidth: nil,
+        wifiFrequency: nil
     )
 }

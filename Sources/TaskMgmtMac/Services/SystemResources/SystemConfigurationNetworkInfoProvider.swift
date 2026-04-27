@@ -1,4 +1,5 @@
 import Darwin
+import CoreWLAN
 import Foundation
 import SystemConfiguration
 
@@ -23,7 +24,13 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
             dnsName: cachedDetails.dnsName,
             ipv4Address: cachedDetails.ipv4Address,
             sentBytesPerSecond: liveMetrics.sentBytesPerSecond,
-            receivedBytesPerSecond: liveMetrics.receivedBytesPerSecond
+            receivedBytesPerSecond: liveMetrics.receivedBytesPerSecond,
+            wifiRSSI: cachedDetails.wifiRSSI,
+            wifiNoise: cachedDetails.wifiNoise,
+            wifiChannel: cachedDetails.wifiChannel,
+            wifiBand: cachedDetails.wifiBand,
+            wifiChannelWidth: cachedDetails.wifiChannelWidth,
+            wifiFrequency: cachedDetails.wifiFrequency
         )
     }
 
@@ -70,12 +77,19 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
 
         let serviceName = configuredServiceName(store: store, serviceID: primary.serviceID)
         let dns = includeDetails ? dnsInfo(store: store, serviceID: primary.serviceID) : ("--", [])
+        let wifiDetails = includeDetails ? wifiDetails(interfaceName: primary.interfaceName) : nil
         let details = NetworkDetails(
             interfaceName: primary.interfaceName,
             adapterName: serviceName ?? primary.interfaceName,
-            connectionType: connectionType(for: primary.interfaceName, serviceName: serviceName),
+            connectionType: wifiDetails == nil ? connectionType(for: primary.interfaceName, serviceName: serviceName) : "Wi-Fi",
             dnsName: dns.0,
-            ipv4Address: counters?.ipv4Address ?? "--"
+            ipv4Address: counters?.ipv4Address ?? "--",
+            wifiRSSI: wifiDetails?.rssi,
+            wifiNoise: wifiDetails?.noise,
+            wifiChannel: wifiDetails?.channel,
+            wifiBand: wifiDetails?.band,
+            wifiChannelWidth: wifiDetails?.width,
+            wifiFrequency: wifiDetails?.frequency
         )
 
         return NetworkSample(counters: networkCounters, details: details)
@@ -142,6 +156,66 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
         }
 
         return interfaceName
+    }
+
+    private static func wifiDetails(interfaceName: String) -> WiFiDetails? {
+        guard let interface = CWWiFiClient.shared().interface(withName: interfaceName) else {
+            return nil
+        }
+
+        let channel = interface.wlanChannel()
+        return WiFiDetails(
+            rssi: interface.rssiValue(),
+            noise: interface.noiseMeasurement(),
+            channel: channel?.channelNumber,
+            band: channel.map { bandText($0.channelBand) },
+            width: channel.map { channelWidthText($0.channelWidth) },
+            frequency: channel.map { frequencyText(channelNumber: $0.channelNumber, band: $0.channelBand) }
+        )
+    }
+
+    private static func bandText(_ band: CWChannelBand) -> String {
+        switch band {
+        case .band2GHz:
+            "2.4 GHz"
+        case .band5GHz:
+            "5 GHz"
+        case .band6GHz:
+            "6 GHz"
+        default:
+            "--"
+        }
+    }
+
+    private static func channelWidthText(_ width: CWChannelWidth) -> String {
+        switch width {
+        case .width20MHz:
+            "20 MHz"
+        case .width40MHz:
+            "40 MHz"
+        case .width80MHz:
+            "80 MHz"
+        case .width160MHz:
+            "160 MHz"
+        default:
+            "--"
+        }
+    }
+
+    private static func frequencyText(channelNumber: Int, band: CWChannelBand) -> String {
+        let megahertz: Int
+        switch band {
+        case .band2GHz:
+            megahertz = channelNumber == 14 ? 2484 : 2407 + channelNumber * 5
+        case .band5GHz:
+            megahertz = 5000 + channelNumber * 5
+        case .band6GHz:
+            megahertz = 5950 + channelNumber * 5
+        default:
+            return "--"
+        }
+
+        return "\(megahertz) MHz"
     }
 
     private static func interfaceCounters() -> [String: InterfaceSnapshot] {
@@ -231,14 +305,35 @@ private struct NetworkDetails: Sendable {
     let connectionType: String
     let dnsName: String
     let ipv4Address: String
+    let wifiRSSI: Int?
+    let wifiNoise: Int?
+    let wifiChannel: Int?
+    let wifiBand: String?
+    let wifiChannelWidth: String?
+    let wifiFrequency: String?
 
     static let unavailable = NetworkDetails(
         interfaceName: "--",
         adapterName: "Network",
         connectionType: "--",
         dnsName: "--",
-        ipv4Address: "--"
+        ipv4Address: "--",
+        wifiRSSI: nil,
+        wifiNoise: nil,
+        wifiChannel: nil,
+        wifiBand: nil,
+        wifiChannelWidth: nil,
+        wifiFrequency: nil
     )
+}
+
+private struct WiFiDetails {
+    let rssi: Int
+    let noise: Int
+    let channel: Int?
+    let band: String?
+    let width: String?
+    let frequency: String?
 }
 
 private struct InterfaceSnapshot {

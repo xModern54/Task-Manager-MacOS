@@ -95,7 +95,11 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Adapter name", value: "--"),
                 PerformanceStat(label: "DNS name", value: "--"),
                 PerformanceStat(label: "Connection type", value: "--"),
-                PerformanceStat(label: "IPv4 address", value: "--")
+                PerformanceStat(label: "IPv4 address", value: "--"),
+                PerformanceStat(label: "RSSI", value: "--"),
+                PerformanceStat(label: "Noise", value: "--"),
+                PerformanceStat(label: "Channel", value: "--"),
+                PerformanceStat(label: "Frequency", value: "--")
             ]
         ),
         PerformanceDevice(
