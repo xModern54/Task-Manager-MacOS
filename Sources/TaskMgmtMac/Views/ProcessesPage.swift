@@ -11,7 +11,7 @@ struct ProcessesPage: View {
     var body: some View {
         VStack(spacing: 0) {
             ProcessesCommandBar(
-                selectedProcess: viewModel.selectedProcess,
+                canEndTask: viewModel.canTerminateSelection,
                 onRunNewTask: {
                     isRunNewTaskPresented = true
                 },
@@ -27,8 +27,11 @@ struct ProcessesPage: View {
                     sortColumn: viewModel.sortColumn,
                     sortDirection: viewModel.sortDirection,
                     selectedProcessID: $viewModel.selectedProcessID,
+                    selectedProcessGroupID: $viewModel.selectedProcessGroupID,
                     onSort: viewModel.sort(by:),
-                    onToggleGroup: viewModel.toggleProcessGroupExpansion(_:)
+                    onToggleGroup: viewModel.toggleProcessGroupExpansion(_:),
+                    onSelectProcess: viewModel.selectProcess(_:),
+                    onSelectGroup: viewModel.selectProcessGroup(_:)
                 )
             } else {
                 WindowsTaskManagerTheme.table
@@ -52,18 +55,14 @@ struct ProcessesPage: View {
         }
         .alert(endTaskPromptTitle, isPresented: $isEndTaskConfirmationPresented) {
             Button("End task", role: .destructive) {
-                let result = viewModel.terminateSelectedProcess()
+                let result = viewModel.terminateSelectedTask()
                 guard !result.isSuccess else { return }
                 terminationErrorMessage = result.message
                 isTerminationErrorPresented = true
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            if let selectedProcess = viewModel.selectedProcess {
-                Text("This will send a terminate signal to \(selectedProcess.name). PID: \(selectedProcess.pid).")
-            } else {
-                Text("No process is selected.")
-            }
+            Text(viewModel.selectedTerminationMessage)
         }
         .alert("Could not end task", isPresented: $isTerminationErrorPresented) {
             Button("OK", role: .cancel) {}
@@ -73,16 +72,16 @@ struct ProcessesPage: View {
     }
 
     private var endTaskPromptTitle: String {
-        guard let selectedProcess = viewModel.selectedProcess else {
+        guard viewModel.canTerminateSelection else {
             return "End task?"
         }
 
-        return "End \(selectedProcess.name)?"
+        return "End \(viewModel.selectedTerminationTitle)?"
     }
 }
 
 private struct ProcessesCommandBar: View {
-    let selectedProcess: ProcessMetric?
+    let canEndTask: Bool
     let onRunNewTask: () -> Void
     let onEndTask: () -> Void
 
@@ -104,7 +103,7 @@ private struct ProcessesCommandBar: View {
             CommandButton(
                 icon: "circle.slash",
                 title: "End task",
-                isEnabled: selectedProcess != nil,
+                isEnabled: canEndTask,
                 action: onEndTask
             )
 

@@ -10,6 +10,7 @@ final class TaskManagerViewModel: ObservableObject {
     @Published var selectedSection: TaskManagerSection = .processes
     @Published var searchText = ""
     @Published var selectedProcessID: ProcessMetric.ID?
+    @Published var selectedProcessGroupID: ProcessTableRow.ID?
     @Published var expandedProcessGroupIDs: Set<String> = []
     @Published var isSidebarExpanded = false
     @Published private(set) var sortColumn: ProcessSortColumn = .memory
@@ -143,7 +144,40 @@ final class TaskManagerViewModel: ObservableObject {
         return snapshot.processes.first { $0.id == selectedProcessID }
     }
 
-    func terminateSelectedProcess() -> ProcessTerminationResult {
+    var selectedProcessGroup: ProcessTableRow? {
+        guard let selectedProcessGroupID else { return nil }
+        return visibleProcessRows.first { $0.id == selectedProcessGroupID && $0.isGroup }
+    }
+
+    var canTerminateSelection: Bool {
+        selectedProcess != nil || selectedProcessGroup != nil
+    }
+
+    var selectedTerminationTitle: String {
+        if let selectedProcessGroup {
+            return selectedProcessGroup.metric.name
+        }
+
+        return selectedProcess?.name ?? "task"
+    }
+
+    var selectedTerminationMessage: String {
+        if let selectedProcessGroup {
+            return "This will send a terminate signal to \(selectedProcessGroup.childCount) processes in \(selectedProcessGroup.metric.name)."
+        }
+
+        if let selectedProcess {
+            return "This will send a terminate signal to \(selectedProcess.name). PID: \(selectedProcess.pid)."
+        }
+
+        return "No process is selected."
+    }
+
+    func terminateSelectedTask() -> ProcessTerminationResult {
+        if let selectedProcessGroup {
+            return terminateProcessGroup(selectedProcessGroup)
+        }
+
         guard let process = selectedProcess else {
             return ProcessTerminationResult(isSuccess: false, message: "No process is selected.")
         }
@@ -162,10 +196,21 @@ final class TaskManagerViewModel: ObservableObject {
         }
 
         selectedProcessID = nil
+        selectedProcessGroupID = nil
         return ProcessTerminationResult(
             isSuccess: true,
             message: "Sent terminate signal to \(process.name) (\(process.pid))."
         )
+    }
+
+    func selectProcess(_ processID: ProcessMetric.ID) {
+        selectedProcessID = processID
+        selectedProcessGroupID = nil
+    }
+
+    func selectProcessGroup(_ groupID: ProcessTableRow.ID) {
+        selectedProcessGroupID = groupID
+        selectedProcessID = nil
     }
 
     func refresh() async {
@@ -225,6 +270,12 @@ final class TaskManagerViewModel: ObservableObject {
            let selectedProcessID,
            !nextSnapshot.processes.contains(where: { $0.id == selectedProcessID }) {
             self.selectedProcessID = nil
+        }
+
+        if shouldCollectProcessList,
+           let selectedProcessGroupID,
+           !visibleProcessRows.contains(where: { $0.id == selectedProcessGroupID && $0.isGroup }) {
+            self.selectedProcessGroupID = nil
         }
     }
 
@@ -319,6 +370,39 @@ final class TaskManagerViewModel: ObservableObject {
         if batteryHistory.count > historyLimit {
             batteryHistory.removeFirst(batteryHistory.count - historyLimit)
         }
+    }
+
+    private func terminateProcessGroup(_ group: ProcessTableRow) -> ProcessTerminationResult {
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        let targetProcesses = group.children.filter { $0.pid != currentPID }
+
+        guard !targetProcesses.isEmpty else {
+            return ProcessTerminationResult(isSuccess: false, message: "No terminable processes in \(group.metric.name).")
+        }
+
+        var failedMessages: [String] = []
+        for process in targetProcesses {
+            let result = kill(pid_t(process.pid), SIGTERM)
+            if result != 0 {
+                failedMessages.append("\(process.name) (\(process.pid)): \(String(cString: strerror(errno)))")
+            }
+        }
+
+        guard failedMessages.isEmpty else {
+            return ProcessTerminationResult(
+                isSuccess: false,
+                message: "Could not end all processes in \(group.metric.name): \(failedMessages.joined(separator: "; "))"
+            )
+        }
+
+        selectedProcessID = nil
+        selectedProcessGroupID = nil
+        expandedProcessGroupIDs.remove(group.id)
+
+        return ProcessTerminationResult(
+            isSuccess: true,
+            message: "Sent terminate signal to \(targetProcesses.count) processes in \(group.metric.name)."
+        )
     }
 
     private func sortedProcesses(_ processes: [ProcessMetric]) -> [ProcessMetric] {

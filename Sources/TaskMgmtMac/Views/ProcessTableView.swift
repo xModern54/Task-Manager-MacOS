@@ -6,8 +6,11 @@ struct ProcessTableView: View {
     let sortColumn: ProcessSortColumn
     let sortDirection: SortDirection
     @Binding var selectedProcessID: ProcessMetric.ID?
+    @Binding var selectedProcessGroupID: ProcessTableRow.ID?
     let onSort: (ProcessSortColumn) -> Void
     let onToggleGroup: (ProcessTableRow.ID) -> Void
+    let onSelectProcess: (ProcessMetric.ID) -> Void
+    let onSelectGroup: (ProcessTableRow.ID) -> Void
 
     var body: some View {
         ScrollView(.vertical) {
@@ -22,15 +25,16 @@ struct ProcessTableView: View {
                 ForEach(rows) { row in
                     ProcessRow(
                         row: row,
-                        isSelected: !row.isGroup && selectedProcessID == row.metric.id
+                        isSelected: row.isGroup ? selectedProcessGroupID == row.id : selectedProcessID == row.metric.id
                     )
                     .onTapGesture {
                         if row.isGroup {
+                            onSelectGroup(row.id)
                             withAnimation(.easeInOut(duration: 0.14)) {
                                 onToggleGroup(row.id)
                             }
                         } else {
-                            selectedProcessID = row.metric.id
+                            onSelectProcess(row.metric.id)
                         }
                     }
                 }
