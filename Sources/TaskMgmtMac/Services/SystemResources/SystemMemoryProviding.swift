@@ -9,6 +9,10 @@ struct SystemMemoryUsage: Sendable {
     let totalBytes: UInt64
     let usedBytes: UInt64
     let compressedBytes: UInt64
+    let cachedBytes: UInt64
+    let wiredBytes: UInt64
+    let swapUsedBytes: UInt64
+    let swapTotalBytes: UInt64
 
     var usagePercent: Int {
         guard totalBytes > 0 else { return 0 }

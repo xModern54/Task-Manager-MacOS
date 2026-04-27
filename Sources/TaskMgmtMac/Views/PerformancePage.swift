@@ -41,7 +41,11 @@ struct PerformancePage: View {
                     samples: memoryHistory,
                     usedBytes: resolvedMemoryUsedBytes(summary),
                     totalBytes: resolvedMemoryTotalBytes(summary),
-                    compressedBytes: summary.memoryCompressedBytes
+                    compressedBytes: summary.memoryCompressedBytes,
+                    cachedBytes: summary.memoryCachedBytes,
+                    wiredBytes: summary.memoryWiredBytes,
+                    swapUsedBytes: summary.memorySwapUsedBytes,
+                    swapTotalBytes: summary.memorySwapTotalBytes
                 )
             } else if device.kind == .gpu {
                 return device.updatingGPUStats(
@@ -516,7 +520,11 @@ private extension PerformanceDevice {
         samples: [Double],
         usedBytes: UInt64,
         totalBytes: UInt64,
-        compressedBytes: UInt64
+        compressedBytes: UInt64,
+        cachedBytes: UInt64,
+        wiredBytes: UInt64,
+        swapUsedBytes: UInt64,
+        swapTotalBytes: UInt64
     ) -> PerformanceDevice {
         guard kind == .memory else { return self }
 
@@ -540,7 +548,11 @@ private extension PerformanceDevice {
                     value: "\(formattedGigabytes(clampedUsedBytes))/\(formattedGigabytes(clampedTotalBytes))"
                 )
             case "Cached":
-                PerformanceStat(label: stat.label, value: "--")
+                PerformanceStat(label: stat.label, value: formattedGigabytes(cachedBytes))
+            case "Wired":
+                PerformanceStat(label: stat.label, value: formattedGigabytes(wiredBytes))
+            case "Swap used":
+                PerformanceStat(label: stat.label, value: formattedSwapUsage(usedBytes: swapUsedBytes, totalBytes: swapTotalBytes))
             default:
                 stat
             }
@@ -794,6 +806,14 @@ private func formattedGigabytes(_ bytes: UInt64) -> String {
 private func formattedMegabytes(_ bytes: UInt64) -> String {
     let megabytes = Double(bytes) / (1024 * 1024)
     return String(format: "%.0f MB", megabytes)
+}
+
+private func formattedSwapUsage(usedBytes: UInt64, totalBytes: UInt64) -> String {
+    guard totalBytes > 0 else {
+        return "--"
+    }
+
+    return "\(formattedGigabytes(usedBytes))/\(formattedGigabytes(totalBytes))"
 }
 
 private func formattedBytesPerSecond(_ bytes: UInt64) -> String {

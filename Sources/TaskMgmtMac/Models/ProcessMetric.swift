@@ -71,6 +71,10 @@ struct ProcessSummary: Hashable, Sendable {
     let memoryUsedBytes: UInt64
     let memoryTotalBytes: UInt64
     let memoryCompressedBytes: UInt64
+    let memoryCachedBytes: UInt64
+    let memoryWiredBytes: UInt64
+    let memorySwapUsedBytes: UInt64
+    let memorySwapTotalBytes: UInt64
     let disk: Int
     let network: Int
     let gpu: Int
@@ -83,6 +87,10 @@ struct ProcessSummary: Hashable, Sendable {
         memoryUsedBytes: UInt64 = 0,
         memoryTotalBytes: UInt64 = 0,
         memoryCompressedBytes: UInt64 = 0,
+        memoryCachedBytes: UInt64 = 0,
+        memoryWiredBytes: UInt64 = 0,
+        memorySwapUsedBytes: UInt64 = 0,
+        memorySwapTotalBytes: UInt64 = 0,
         disk: Int,
         network: Int,
         gpu: Int,
@@ -94,6 +102,10 @@ struct ProcessSummary: Hashable, Sendable {
         self.memoryUsedBytes = memoryUsedBytes
         self.memoryTotalBytes = memoryTotalBytes
         self.memoryCompressedBytes = memoryCompressedBytes
+        self.memoryCachedBytes = memoryCachedBytes
+        self.memoryWiredBytes = memoryWiredBytes
+        self.memorySwapUsedBytes = memorySwapUsedBytes
+        self.memorySwapTotalBytes = memorySwapTotalBytes
         self.disk = disk
         self.network = network
         self.gpu = gpu

@@ -56,8 +56,8 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Available", value: "25.8 GB"),
                 PerformanceStat(label: "Committed", value: "8.3/33.9 GB"),
                 PerformanceStat(label: "Cached", value: "2.6 GB"),
-                PerformanceStat(label: "Speed", value: "4100 MHz"),
-                PerformanceStat(label: "Slots used", value: "2 of 4")
+                PerformanceStat(label: "Wired", value: "--"),
+                PerformanceStat(label: "Swap used", value: "--")
             ]
         ),
         PerformanceDevice(
