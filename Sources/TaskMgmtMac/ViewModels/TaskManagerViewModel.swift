@@ -29,7 +29,7 @@ final class TaskManagerViewModel: ObservableObject {
     @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
 
     private let historyLimit = 60
-    private let refreshInterval: Duration = .milliseconds(500)
+    private var refreshInterval: Duration = .milliseconds(500)
     private let monitor: any ProcessMonitoringProviding
     private let gpuInfoProvider: any SystemGPUInfoProviding
     private let diskInfoProvider: any SystemDiskInfoProviding
@@ -177,6 +177,10 @@ final class TaskManagerViewModel: ObservableObject {
                 break
             }
         }
+    }
+
+    func setRefreshInterval(_ interval: SettingsRefreshInterval) {
+        refreshInterval = interval.duration
     }
 
     func toggleSidebar() {

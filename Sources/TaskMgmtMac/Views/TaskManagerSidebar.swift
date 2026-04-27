@@ -50,13 +50,14 @@ private struct SidebarRow: View {
     let isSelected: Bool
     let isExpanded: Bool
     let selectionNamespace: Namespace.ID
+    @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
         HStack(spacing: isExpanded ? 18 : 0) {
             ZStack(alignment: .leading) {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(WindowsTaskManagerTheme.accent)
+                        .fill(settings.effectiveAccentColor)
                         .frame(width: 4, height: 22)
                         .offset(x: isExpanded ? -10 : -8)
                         .matchedGeometryEffect(id: "sidebar-selection-indicator", in: selectionNamespace)

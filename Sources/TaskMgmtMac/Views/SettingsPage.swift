@@ -1,10 +1,7 @@
 import SwiftUI
 
 struct SettingsPage: View {
-    @State private var refreshInterval = SettingsRefreshInterval.half
-    @State private var selectedTheme = SettingsTheme.system
-    @State private var accentFollowsSystem = true
-    @State private var customAccentColor = SettingsAccentColor.blue
+    @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,18 +26,18 @@ struct SettingsPage: View {
                         SettingsValueRow(label: "Role", value: RootLaunchManager.isRunningAsRoot ? "Root" : "User")
                         SettingsMenuRow(
                             label: "Refresh interval",
-                            value: $refreshInterval,
+                            value: $settings.refreshInterval,
                             options: SettingsRefreshInterval.allCases
                         )
                     }
 
                     SettingsSection(title: "Appearance") {
-                        SettingsPickerRow(label: "Theme", selection: $selectedTheme)
-                        SettingsToggleRow(label: "Use macOS accent color", value: $accentFollowsSystem)
+                        SettingsPickerRow(label: "Theme", selection: $settings.theme)
+                        SettingsToggleRow(label: "Use macOS accent color", value: $settings.useMacOSAccentColor)
                         SettingsAccentColorRow(
                             label: "Custom accent color",
-                            selection: $customAccentColor,
-                            isEnabled: !accentFollowsSystem
+                            selection: $settings.customAccentColor,
+                            isEnabled: !settings.useMacOSAccentColor
                         )
                     }
 
@@ -54,64 +51,6 @@ struct SettingsPage: View {
             .background(WindowsTaskManagerTheme.table)
         }
         .background(WindowsTaskManagerTheme.content)
-    }
-}
-
-private enum SettingsTheme: String, CaseIterable, Identifiable {
-    case system = "System"
-    case light = "Light"
-    case dark = "Dark"
-
-    var id: Self { self }
-}
-
-private enum SettingsRefreshInterval: Double, CaseIterable, Identifiable {
-    case eighth = 0.125
-    case quarter = 0.25
-    case half = 0.5
-    case one = 1
-
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .eighth:
-            "0.125 seconds"
-        case .quarter:
-            "0.25 seconds"
-        case .half:
-            "0.5 seconds"
-        case .one:
-            "1 second"
-        }
-    }
-}
-
-private enum SettingsAccentColor: String, CaseIterable, Identifiable {
-    case blue = "Blue"
-    case purple = "Purple"
-    case pink = "Pink"
-    case red = "Red"
-    case orange = "Orange"
-    case green = "Green"
-
-    var id: Self { self }
-
-    var color: Color {
-        switch self {
-        case .blue:
-            Color(red: 0.05, green: 0.47, blue: 0.98)
-        case .purple:
-            Color(red: 0.49, green: 0.28, blue: 0.91)
-        case .pink:
-            Color(red: 0.90, green: 0.20, blue: 0.55)
-        case .red:
-            Color(red: 0.93, green: 0.20, blue: 0.22)
-        case .orange:
-            Color(red: 0.95, green: 0.52, blue: 0.12)
-        case .green:
-            Color(red: 0.18, green: 0.64, blue: 0.34)
-        }
     }
 }
 

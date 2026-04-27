@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TaskManagerRootView: View {
     @ObservedObject var viewModel: TaskManagerViewModel
+    @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,10 +45,14 @@ struct TaskManagerRootView: View {
         }
         .background(WindowsTaskManagerTheme.windowBackground)
         .foregroundStyle(WindowsTaskManagerTheme.textPrimary)
-        .tint(WindowsTaskManagerTheme.accent)
+        .tint(settings.effectiveAccentColor)
         .background(WindowConfigurator())
         .task {
+            viewModel.setRefreshInterval(settings.refreshInterval)
             await viewModel.startRefreshing()
+        }
+        .onChange(of: settings.refreshInterval) { _, newInterval in
+            viewModel.setRefreshInterval(newInterval)
         }
     }
 }

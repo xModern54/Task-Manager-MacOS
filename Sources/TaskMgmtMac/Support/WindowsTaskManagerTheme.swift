@@ -13,7 +13,8 @@ enum WindowsTaskManagerTheme {
     static let textPrimary = adaptive(light: rgb(0.080, 0.087, 0.100), dark: rgb(0.948, 0.954, 0.966))
     static let textSecondary = adaptive(light: rgb(0.350, 0.376, 0.414), dark: rgb(0.730, 0.751, 0.775))
     static let textMuted = adaptive(light: rgb(0.590, 0.615, 0.650), dark: rgb(0.450, 0.462, 0.482))
-    static let accent = Color(nsColor: .controlAccentColor)
+    static let systemAccent = Color(nsColor: .controlAccentColor)
+    static let accent = systemAccent
     static let searchBackground = adaptive(light: NSColor.black.withAlphaComponent(0.070), dark: NSColor.white.withAlphaComponent(0.085))
     static let searchBackgroundFocused = adaptive(light: NSColor.black.withAlphaComponent(0.090), dark: NSColor.white.withAlphaComponent(0.110))
     static let searchBorder = adaptive(light: NSColor.black.withAlphaComponent(0.140), dark: NSColor.white.withAlphaComponent(0.125))

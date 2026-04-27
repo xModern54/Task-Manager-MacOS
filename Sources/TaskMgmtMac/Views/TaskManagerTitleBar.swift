@@ -40,6 +40,7 @@ struct TaskManagerTitleBar: View {
 private struct SearchField: View {
     @Binding var text: String
     @FocusState private var isFocused: Bool
+    @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
         HStack(spacing: 14) {
@@ -58,7 +59,7 @@ private struct SearchField: View {
                     .textFieldStyle(.plain)
                     .taskManagerFont(15)
                     .foregroundStyle(WindowsTaskManagerTheme.textPrimary)
-                    .tint(WindowsTaskManagerTheme.accent)
+                    .tint(settings.effectiveAccentColor)
                     .focused($isFocused)
             }
         }

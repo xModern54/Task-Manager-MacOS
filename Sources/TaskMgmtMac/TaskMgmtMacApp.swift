@@ -5,6 +5,7 @@ struct TaskMgmtMacApp: App {
     @StateObject private var viewModel = TaskManagerViewModel(
         monitor: ProcessMonitor()
     )
+    @StateObject private var settings = TaskManagerSettings()
 
     init() {
         RootLaunchManager.exitIfHandlingProbeArgument()
@@ -15,6 +16,9 @@ struct TaskMgmtMacApp: App {
             RootLaunchGate {
                 TaskManagerRootView(viewModel: viewModel)
             }
+                .environmentObject(settings)
+                .preferredColorScheme(settings.preferredColorScheme)
+                .tint(settings.effectiveAccentColor)
                 .frame(width: 682, height: 660)
         }
         .windowStyle(.hiddenTitleBar)

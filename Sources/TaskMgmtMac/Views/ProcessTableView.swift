@@ -153,6 +153,7 @@ private struct SummaryHeaderCell: View {
 private struct ProcessRow: View {
     let process: ProcessMetric
     let isSelected: Bool
+    @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
         HStack(spacing: 0) {
@@ -167,7 +168,7 @@ private struct ProcessRow: View {
         .background(isSelected ? WindowsTaskManagerTheme.tableSelection : WindowsTaskManagerTheme.table)
         .overlay {
             if isSelected {
-                WindowsTaskManagerTheme.accent
+                settings.effectiveAccentColor
                     .opacity(0.10)
             }
         }
