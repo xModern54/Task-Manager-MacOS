@@ -189,7 +189,7 @@ private struct PerformanceDeviceList: View {
 
     var body: some View {
         ScrollView(.vertical) {
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 ForEach(devices) { device in
                     PerformanceDeviceRow(
                         device: device,
@@ -201,7 +201,7 @@ private struct PerformanceDeviceList: View {
                 }
             }
             .padding(.top, 10)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
         }
         .frame(width: 220)
         .background(WindowsTaskManagerTheme.content)
@@ -237,9 +237,20 @@ private struct PerformanceDeviceRow: View {
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 8)
-        .frame(height: 60)
-        .background(isSelected ? WindowsTaskManagerTheme.tableSelection : Color.clear)
+        .padding(.horizontal, 10)
+        .frame(height: 66)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(isSelected ? device.color.opacity(0.08) : Color.clear)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(
+                    device.outlineColor.opacity(isSelected ? 1 : 0.42),
+                    lineWidth: isSelected ? 2.4 : 1.2
+                )
+        }
+        .shadow(color: isSelected ? device.outlineColor.opacity(0.16) : .clear, radius: 4, x: 0, y: 0)
         .contentShape(Rectangle())
     }
 }
@@ -883,6 +894,27 @@ private func normalizedNetworkSamples(_ samples: [Double]) -> [Double] {
     }
 
     return samples.map { min(max($0 / maximum * 100, 0), 100) }
+}
+
+private extension PerformanceDevice {
+    var outlineColor: Color {
+        switch kind {
+        case .cpu:
+            Color(red: 0.32, green: 0.88, blue: 0.96)
+        case .memory:
+            Color(red: 0.61, green: 0.68, blue: 1.00)
+        case .disk:
+            Color(red: 0.28, green: 0.82, blue: 0.86)
+        case .ethernet:
+            Color(red: 1.00, green: 0.56, blue: 0.84)
+        case .gpu:
+            Color(red: 0.84, green: 0.64, blue: 1.00)
+        case .battery:
+            Color(red: 0.98, green: 0.72, blue: 0.28)
+        case .npu:
+            Color(red: 0.34, green: 0.78, blue: 0.59)
+        }
+    }
 }
 
 private func formattedMilliseconds(_ milliseconds: Double) -> String {
