@@ -13,7 +13,15 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
         }.value
 
         let liveMetrics = liveMetrics(from: sample)
-        previousCounters = sample.counters
+        if let counters = sample.counters {
+            if let previousCounters {
+                if counters.timestampNanoseconds >= previousCounters.timestampNanoseconds {
+                    self.previousCounters = counters
+                }
+            } else {
+                previousCounters = counters
+            }
+        }
 
         cachedDetails = sample.details ?? cachedDetails
 
@@ -44,6 +52,10 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
         }
 
         guard previousCounters.interfaceName == current.interfaceName else {
+            return .empty
+        }
+
+        guard current.timestampNanoseconds > previousCounters.timestampNanoseconds else {
             return .empty
         }
 
