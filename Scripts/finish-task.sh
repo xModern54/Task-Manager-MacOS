@@ -21,8 +21,18 @@ log_dir="${TMPDIR:-/tmp}/taskmgmtmac-finish-task"
 mkdir -p "$log_dir"
 
 focus_app() {
-    sleep "${TASKMGMT_FOCUS_DELAY_SECONDS:-1}"
-    osascript -e 'tell application id "com.xmodern.TaskMgmtMac" to activate' 2>/dev/null || true
+    local attempts="${TASKMGMT_FOCUS_ATTEMPTS:-8}"
+    local delay_seconds="${TASKMGMT_FOCUS_DELAY_SECONDS:-0.5}"
+
+    for ((attempt = 1; attempt <= attempts; attempt++)); do
+        sleep "$delay_seconds"
+        osascript >/dev/null 2>&1 <<'APPLESCRIPT' || true
+tell application id "com.xmodern.TaskMgmtMac" to activate
+tell application "System Events"
+    set frontmost of first process whose bundle identifier is "com.xmodern.TaskMgmtMac" to true
+end tell
+APPLESCRIPT
+    done
 }
 
 run_quietly() {
