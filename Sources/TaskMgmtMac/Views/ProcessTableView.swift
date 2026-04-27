@@ -263,6 +263,7 @@ private struct MetricCell: View {
     let text: String
     let intensity: Double
     let isSelected: Bool
+    @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
         Text(text)
@@ -282,7 +283,11 @@ private struct MetricCell: View {
             return .clear
         }
 
-        return WindowsTaskManagerTheme.metricHeat.opacity(0.72 + min(max(intensity, 0), 1) * 0.28)
+        return settings.effectiveAccentColor.opacity(0.12 + clampedIntensity * 0.16)
+    }
+
+    private var clampedIntensity: Double {
+        min(max(intensity, 0), 1)
     }
 }
 
