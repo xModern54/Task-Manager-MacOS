@@ -65,23 +65,26 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
 
         let timestamp = DispatchTime.now().uptimeNanoseconds
         let interfaceCounters = interfaceCounters()
-        let counters = interfaceCounters[primary.interfaceName]
+        let wifiDetails = includeDetails ? activeWiFiDetails() : nil
+        let selectedInterfaceName = wifiDetails?.interfaceName ?? primary.interfaceName
+        let counters = interfaceCounters[selectedInterfaceName]
         let networkCounters = counters.map {
             NetworkCounters(
                 timestampNanoseconds: timestamp,
-                interfaceName: primary.interfaceName,
+                interfaceName: selectedInterfaceName,
                 sentBytes: $0.sentBytes,
                 receivedBytes: $0.receivedBytes
             )
         }
 
         let serviceName = configuredServiceName(store: store, serviceID: primary.serviceID)
-        let dns = includeDetails ? dnsInfo(store: store, serviceID: primary.serviceID) : ("--", [])
-        let wifiDetails = includeDetails ? wifiDetails(interfaceName: primary.interfaceName) : nil
+        let selectedServiceName = wifiDetails == nil ? serviceName : configuredServiceName(store: store, interfaceName: selectedInterfaceName) ?? "Wi-Fi"
+        let selectedServiceID = wifiDetails == nil ? primary.serviceID : configuredServiceID(store: store, interfaceName: selectedInterfaceName) ?? primary.serviceID
+        let dns = includeDetails ? dnsInfo(store: store, serviceID: selectedServiceID) : ("--", [])
         let details = NetworkDetails(
-            interfaceName: primary.interfaceName,
-            adapterName: serviceName ?? primary.interfaceName,
-            connectionType: wifiDetails == nil ? connectionType(for: primary.interfaceName, serviceName: serviceName) : "Wi-Fi",
+            interfaceName: selectedInterfaceName,
+            adapterName: selectedServiceName ?? selectedInterfaceName,
+            connectionType: wifiDetails == nil ? connectionType(for: selectedInterfaceName, serviceName: serviceName) : "Wi-Fi",
             dnsName: dns.0,
             ipv4Address: counters?.ipv4Address ?? "--",
             wifiRSSI: wifiDetails?.rssi,
@@ -142,6 +145,33 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
         return service["UserDefinedName"] as? String
     }
 
+    private static func configuredServiceID(store: SCDynamicStore, interfaceName: String) -> String? {
+        guard let keys = SCDynamicStoreCopyKeyList(store, "Setup:/Network/Service/.*/Interface" as CFString) as? [String] else {
+            return nil
+        }
+
+        for key in keys {
+            guard let interface = SCDynamicStoreCopyValue(store, key as CFString) as? [String: Any],
+                  interface["DeviceName"] as? String == interfaceName else {
+                continue
+            }
+
+            let components = key.components(separatedBy: "/")
+            guard let serviceIndex = components.firstIndex(of: "Service"),
+                  components.indices.contains(serviceIndex + 1) else {
+                continue
+            }
+
+            return components[serviceIndex + 1]
+        }
+
+        return nil
+    }
+
+    private static func configuredServiceName(store: SCDynamicStore, interfaceName: String) -> String? {
+        configuredServiceName(store: store, serviceID: configuredServiceID(store: store, interfaceName: interfaceName))
+    }
+
     private static func connectionType(for interfaceName: String, serviceName: String?) -> String {
         if let serviceName, !serviceName.isEmpty {
             return serviceName
@@ -158,6 +188,24 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
         return interfaceName
     }
 
+    private static func activeWiFiDetails() -> WiFiDetails? {
+        guard let interfaces = CWWiFiClient.shared().interfaces() else {
+            return nil
+        }
+
+        for interface in interfaces {
+            guard interface.powerOn(),
+                  interface.rssiValue() != 0,
+                  let interfaceName = interface.interfaceName else {
+                continue
+            }
+
+            return wifiDetails(interfaceName: interfaceName)
+        }
+
+        return nil
+    }
+
     private static func wifiDetails(interfaceName: String) -> WiFiDetails? {
         guard let interface = CWWiFiClient.shared().interface(withName: interfaceName) else {
             return nil
@@ -165,6 +213,7 @@ actor SystemConfigurationNetworkInfoProvider: SystemNetworkInfoProviding {
 
         let channel = interface.wlanChannel()
         return WiFiDetails(
+            interfaceName: interfaceName,
             rssi: interface.rssiValue(),
             noise: interface.noiseMeasurement(),
             channel: channel?.channelNumber,
@@ -328,6 +377,7 @@ private struct NetworkDetails: Sendable {
 }
 
 private struct WiFiDetails {
+    let interfaceName: String
     let rssi: Int
     let noise: Int
     let channel: Int?
