@@ -6,6 +6,7 @@ final class ProcessIconCache {
     static let shared = ProcessIconCache()
 
     private var icons: [String: NSImage] = [:]
+    private var warmupTask: Task<Void, Never>?
 
     private init() {}
 
@@ -23,6 +24,40 @@ final class ProcessIconCache {
         icon.size = NSSize(width: 18, height: 18)
         icons[cacheKey] = icon
         return icon
+    }
+
+    func warmIcons(for processes: [ProcessMetric]) {
+        let requests: [IconRequest] = processes.compactMap { process in
+            guard cachedIcon(pid: process.pid, executablePath: process.executablePath) == nil else {
+                return nil
+            }
+
+            return IconRequest(pid: process.pid, executablePath: process.executablePath)
+        }
+
+        guard !requests.isEmpty, warmupTask == nil else { return }
+
+        warmupTask = Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            defer {
+                warmupTask = nil
+            }
+
+            var loadedCount = 0
+            for request in requests {
+                guard !Task.isCancelled else { return }
+                guard cachedIcon(pid: request.pid, executablePath: request.executablePath) == nil else {
+                    continue
+                }
+
+                _ = icon(pid: request.pid, executablePath: request.executablePath)
+                loadedCount += 1
+
+                if loadedCount.isMultiple(of: 6) {
+                    try? await Task.sleep(for: .milliseconds(12))
+                }
+            }
+        }
     }
 
     private func cacheKey(pid: Int, executablePath: String?) -> String {
@@ -50,4 +85,9 @@ final class ProcessIconCache {
 
         return components.prefix(through: appIndex).joined(separator: "/")
     }
+}
+
+private struct IconRequest {
+    let pid: Int
+    let executablePath: String?
 }

@@ -284,11 +284,10 @@ private struct ProcessDisclosureIcon: View {
 
 private struct ProcessIconView: View {
     let process: ProcessMetric
-    @State private var icon: NSImage?
 
     var body: some View {
         Group {
-            if let icon {
+            if let icon = ProcessIconCache.shared.cachedIcon(pid: process.pid, executablePath: process.executablePath) {
                 Image(nsImage: icon)
                     .resizable()
                     .interpolation(.high)
@@ -302,20 +301,6 @@ private struct ProcessIconView: View {
         .aspectRatio(contentMode: .fit)
         .frame(width: 18, height: 18)
         .accessibilityHidden(true)
-        .task(id: iconTaskID) {
-            if let cachedIcon = ProcessIconCache.shared.cachedIcon(pid: process.pid, executablePath: process.executablePath) {
-                icon = cachedIcon
-                return
-            }
-
-            icon = nil
-            await Task.yield()
-            icon = ProcessIconCache.shared.icon(pid: process.pid, executablePath: process.executablePath)
-        }
-    }
-
-    private var iconTaskID: String {
-        "\(process.pid):\(process.executablePath ?? "")"
     }
 }
 

@@ -253,6 +253,9 @@ final class TaskManagerViewModel: ObservableObject {
         guard !Task.isCancelled else { return }
 
         snapshot = nextSnapshot
+        if shouldCollectProcessList {
+            ProcessIconCache.shared.warmIcons(for: nextSnapshot.processes)
+        }
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
         appendMemoryHistoryValue(Double(nextSnapshot.summary.memory))
 
