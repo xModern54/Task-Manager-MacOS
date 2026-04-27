@@ -10,6 +10,7 @@ final class TaskManagerViewModel: ObservableObject {
     @Published var selectedSection: TaskManagerSection = .processes
     @Published var searchText = ""
     @Published var selectedProcessID: ProcessMetric.ID?
+    @Published var expandedProcessGroupIDs: Set<String> = []
     @Published var isSidebarExpanded = false
     @Published private(set) var sortColumn: ProcessSortColumn = .memory
     @Published private(set) var sortDirection: SortDirection = .descending
@@ -57,6 +58,72 @@ final class TaskManagerViewModel: ObservableObject {
     }
 
     var visibleProcesses: [ProcessMetric] {
+        filteredProcesses.sorted { lhs, rhs in
+            sortDirection.areInIncreasingOrder(
+                sortColumn.value(for: lhs),
+                sortColumn.value(for: rhs),
+                fallback: lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            )
+        }
+    }
+
+    var visibleProcessRows: [ProcessTableRow] {
+        let groups = Dictionary(grouping: filteredProcesses) { process in
+            processAppGroup(for: process)
+        }
+
+        let groupedRows = groups.map { group, processes in
+            ProcessGroupBuildResult(group: group, processes: sortedProcesses(processes))
+        }
+        .sorted { lhs, rhs in
+            sortDirection.areInIncreasingOrder(
+                sortColumn.value(for: lhs.aggregate),
+                sortColumn.value(for: rhs.aggregate),
+                fallback: lhs.aggregate.name.localizedCaseInsensitiveCompare(rhs.aggregate.name) == .orderedAscending
+            )
+        }
+
+        return groupedRows.flatMap { result in
+            guard result.group.shouldGroup, result.processes.count > 1 else {
+                return result.processes.map { process in
+                    ProcessTableRow(
+                        id: "process-\(process.pid)",
+                        kind: .process,
+                        metric: process,
+                        children: [],
+                        isExpanded: false
+                    )
+                }
+            }
+
+            let isExpanded = expandedProcessGroupIDs.contains(result.group.id)
+            let groupRow = ProcessTableRow(
+                id: result.group.id,
+                kind: .group,
+                metric: result.aggregate,
+                children: result.processes,
+                isExpanded: isExpanded
+            )
+
+            guard isExpanded else {
+                return [groupRow]
+            }
+
+            let childRows = result.processes.map { process in
+                ProcessTableRow(
+                    id: "\(result.group.id)-child-\(process.pid)",
+                    kind: .child,
+                    metric: process,
+                    children: [],
+                    isExpanded: false
+                )
+            }
+
+            return [groupRow] + childRows
+        }
+    }
+
+    private var filteredProcesses: [ProcessMetric] {
         let filteredProcesses: [ProcessMetric]
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if query.isEmpty {
@@ -68,13 +135,7 @@ final class TaskManagerViewModel: ObservableObject {
             }
         }
 
-        return filteredProcesses.sorted { lhs, rhs in
-            sortDirection.areInIncreasingOrder(
-                sortColumn.value(for: lhs),
-                sortColumn.value(for: rhs),
-                fallback: lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            )
-        }
+        return filteredProcesses
     }
 
     var selectedProcess: ProcessMetric? {
@@ -183,6 +244,14 @@ final class TaskManagerViewModel: ObservableObject {
         refreshInterval = interval.duration
     }
 
+    func toggleProcessGroupExpansion(_ groupID: String) {
+        if expandedProcessGroupIDs.contains(groupID) {
+            expandedProcessGroupIDs.remove(groupID)
+        } else {
+            expandedProcessGroupIDs.insert(groupID)
+        }
+    }
+
     func toggleSidebar() {
         isSidebarExpanded.toggle()
     }
@@ -251,11 +320,105 @@ final class TaskManagerViewModel: ObservableObject {
             batteryHistory.removeFirst(batteryHistory.count - historyLimit)
         }
     }
+
+    private func sortedProcesses(_ processes: [ProcessMetric]) -> [ProcessMetric] {
+        processes.sorted { lhs, rhs in
+            sortDirection.areInIncreasingOrder(
+                sortColumn.value(for: lhs),
+                sortColumn.value(for: rhs),
+                fallback: lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            )
+        }
+    }
+
+    private func processAppGroup(for process: ProcessMetric) -> ProcessAppGroup {
+        guard let executablePath = process.executablePath,
+              let appRoot = appBundleRoot(from: executablePath) else {
+            return ProcessAppGroup(
+                id: "pid-\(process.pid)",
+                name: process.name,
+                executablePath: process.executablePath,
+                shouldGroup: false
+            )
+        }
+
+        return ProcessAppGroup(
+            id: "app-\(appRoot.path)",
+            name: appRoot.name,
+            executablePath: appRoot.path,
+            shouldGroup: true
+        )
+    }
+
+    private func appBundleRoot(from executablePath: String) -> (path: String, name: String)? {
+        let components = URL(fileURLWithPath: executablePath).pathComponents
+        var pathComponents: [String] = []
+
+        for component in components {
+            pathComponents.append(component)
+
+            guard component.hasSuffix(".app") else {
+                continue
+            }
+
+            let path = NSString.path(withComponents: pathComponents)
+            let name = String(component.dropLast(4))
+            return (path, name)
+        }
+
+        return nil
+    }
 }
 
 struct ProcessTerminationResult: Sendable {
     let isSuccess: Bool
     let message: String
+}
+
+private struct ProcessAppGroup: Hashable {
+    let id: String
+    let name: String
+    let executablePath: String?
+    let shouldGroup: Bool
+}
+
+private struct ProcessGroupBuildResult {
+    let group: ProcessAppGroup
+    let processes: [ProcessMetric]
+
+    var aggregate: ProcessMetric {
+        guard let representative = processes.first else {
+            return ProcessMetric(
+                name: group.name,
+                iconSystemName: "app",
+                executablePath: group.executablePath,
+                group: .apps,
+                cpu: 0,
+                memoryMB: 0,
+                diskMBs: 0,
+                networkMbps: 0,
+                powerUsage: .veryLow,
+                gpu: 0,
+                pid: 0
+            )
+        }
+
+        return ProcessMetric(
+            name: group.shouldGroup ? group.name : representative.name,
+            iconSystemName: representative.iconSystemName,
+            executablePath: group.executablePath ?? representative.executablePath,
+            group: representative.group,
+            childCount: group.shouldGroup ? processes.count : nil,
+            status: processes.contains(where: { $0.status == .efficiency }) ? .efficiency : nil,
+            cpu: min(processes.reduce(0) { $0 + $1.cpu }, 100),
+            memoryMB: processes.reduce(0) { $0 + $1.memoryMB },
+            diskMBs: processes.reduce(0) { $0 + $1.diskMBs },
+            networkMbps: processes.reduce(0) { $0 + $1.networkMbps },
+            powerUsage: representative.powerUsage,
+            gpu: processes.reduce(0) { $0 + $1.gpu },
+            pid: representative.pid
+        )
+    }
 }
 
 enum ProcessSortColumn: Hashable, Sendable {

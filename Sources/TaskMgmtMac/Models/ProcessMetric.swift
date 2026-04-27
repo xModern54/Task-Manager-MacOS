@@ -118,3 +118,29 @@ struct ProcessSnapshot: Hashable, Sendable {
     let summary: ProcessSummary
     let processes: [ProcessMetric]
 }
+
+struct ProcessTableRow: Identifiable, Hashable {
+    enum Kind: Hashable {
+        case process
+        case group
+        case child
+    }
+
+    let id: String
+    let kind: Kind
+    let metric: ProcessMetric
+    let children: [ProcessMetric]
+    let isExpanded: Bool
+
+    var isGroup: Bool {
+        kind == .group
+    }
+
+    var isChild: Bool {
+        kind == .child
+    }
+
+    var childCount: Int {
+        children.count
+    }
+}

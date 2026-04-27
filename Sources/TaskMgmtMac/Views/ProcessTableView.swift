@@ -2,11 +2,12 @@ import SwiftUI
 
 struct ProcessTableView: View {
     let summary: ProcessSummary
-    let processes: [ProcessMetric]
+    let rows: [ProcessTableRow]
     let sortColumn: ProcessSortColumn
     let sortDirection: SortDirection
     @Binding var selectedProcessID: ProcessMetric.ID?
     let onSort: (ProcessSortColumn) -> Void
+    let onToggleGroup: (ProcessTableRow.ID) -> Void
 
     var body: some View {
         ScrollView(.vertical) {
@@ -18,13 +19,19 @@ struct ProcessTableView: View {
                     onSort: onSort
                 )
 
-                ForEach(processes) { process in
+                ForEach(rows) { row in
                     ProcessRow(
-                        process: process,
-                        isSelected: selectedProcessID == process.id
+                        row: row,
+                        isSelected: !row.isGroup && selectedProcessID == row.metric.id
                     )
                     .onTapGesture {
-                        selectedProcessID = process.id
+                        if row.isGroup {
+                            withAnimation(.easeInOut(duration: 0.14)) {
+                                onToggleGroup(row.id)
+                            }
+                        } else {
+                            selectedProcessID = row.metric.id
+                        }
                     }
                 }
             }
@@ -151,16 +158,16 @@ private struct SummaryHeaderCell: View {
 }
 
 private struct ProcessRow: View {
-    let process: ProcessMetric
+    let row: ProcessTableRow
     let isSelected: Bool
     @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
         HStack(spacing: 0) {
-            ProcessNameCell(process: process, isSelected: isSelected)
-            MetricCell(text: percent(process.cpu), intensity: process.cpu / 10, isSelected: isSelected)
-            MetricCell(text: memory(process.memoryMB), intensity: process.memoryMB / 1300, isSelected: isSelected)
-            MetricCell(text: disk(process.diskMBs), intensity: process.diskMBs / 0.2, isSelected: isSelected)
+            ProcessNameCell(row: row, isSelected: isSelected)
+            MetricCell(text: percent(row.metric.cpu), intensity: row.metric.cpu / 10, isSelected: isSelected)
+            MetricCell(text: memory(row.metric.memoryMB), intensity: row.metric.memoryMB / 1300, isSelected: isSelected)
+            MetricCell(text: disk(row.metric.diskMBs), intensity: row.metric.diskMBs / 0.2, isSelected: isSelected)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 32)
@@ -211,23 +218,31 @@ private struct ProcessRow: View {
 }
 
 private struct ProcessNameCell: View {
-    let process: ProcessMetric
+    let row: ProcessTableRow
     let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 0) {
             HStack(spacing: 8) {
-                ProcessIconView(process: process)
+                if row.isChild {
+                    Color.clear
+                        .frame(width: 22)
+                }
+
+                ProcessDisclosureIcon(row: row)
+
+                ProcessIconView(process: row.metric)
 
                 Text(displayName)
                     .taskManagerFont(14)
+                    .fontWeight(row.isGroup ? .medium : .regular)
                     .lineLimit(1)
             }
             .frame(width: ProcessTableLayout.nameWidth, alignment: .leading)
             .padding(.leading, ProcessTableLayout.nameLeadingPadding)
 
             HStack {
-                if process.status == .efficiency {
+                if row.metric.status == .efficiency {
                     Image(systemName: "leaf")
                         .foregroundStyle(Color(red: 0.43, green: 0.80, blue: 0.34))
                         .taskManagerFont(14)
@@ -242,7 +257,28 @@ private struct ProcessNameCell: View {
     }
 
     private var displayName: String {
-        process.name
+        if row.isGroup {
+            return "\(row.metric.name) (\(row.childCount))"
+        }
+
+        return row.metric.name
+    }
+}
+
+private struct ProcessDisclosureIcon: View {
+    let row: ProcessTableRow
+
+    var body: some View {
+        Group {
+            if row.isGroup {
+                Image(systemName: row.isExpanded ? "chevron.down" : "chevron.right")
+                    .taskManagerFont(9, weight: .semibold)
+                    .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+            } else {
+                Color.clear
+            }
+        }
+        .frame(width: 10, height: 18)
     }
 }
 

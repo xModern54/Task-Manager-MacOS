@@ -23,11 +23,12 @@ struct ProcessesPage: View {
             if isTableMounted {
                 ProcessTableView(
                     summary: viewModel.snapshot.summary,
-                    processes: viewModel.visibleProcesses,
+                    rows: viewModel.visibleProcessRows,
                     sortColumn: viewModel.sortColumn,
                     sortDirection: viewModel.sortDirection,
                     selectedProcessID: $viewModel.selectedProcessID,
-                    onSort: viewModel.sort(by:)
+                    onSort: viewModel.sort(by:),
+                    onToggleGroup: viewModel.toggleProcessGroupExpansion(_:)
                 )
             } else {
                 WindowsTaskManagerTheme.table
