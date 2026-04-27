@@ -20,6 +20,11 @@ log_dir="${TMPDIR:-/tmp}/taskmgmtmac-finish-task"
 
 mkdir -p "$log_dir"
 
+focus_app() {
+    sleep "${TASKMGMT_FOCUS_DELAY_SECONDS:-1}"
+    osascript -e 'tell application id "com.xmodern.TaskMgmtMac" to activate' 2>/dev/null || true
+}
+
 run_quietly() {
     local label="$1"
     shift
@@ -80,6 +85,7 @@ fi
 run_quietly "codesign app" codesign --force --options runtime --sign "$sign_identity" "$app_dir"
 
 open "$app_dir"
+focus_app
 
 echo "==> git sync"
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
