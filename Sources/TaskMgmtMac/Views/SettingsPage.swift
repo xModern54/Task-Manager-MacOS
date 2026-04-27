@@ -1,12 +1,10 @@
 import SwiftUI
 
 struct SettingsPage: View {
-    @State private var launchAsRoot = RootLaunchManager.isRunningAsRoot
-    @State private var refreshInterval = 0.5
-    @State private var showCompactGraphs = true
+    @State private var refreshInterval = SettingsRefreshInterval.half
     @State private var selectedTheme = SettingsTheme.system
     @State private var accentFollowsSystem = true
-    @State private var reduceAnimations = false
+    @State private var customAccentColor = SettingsAccentColor.blue
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,25 +26,22 @@ struct SettingsPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     SettingsSection(title: "General") {
-                        SettingsToggleRow(
-                            label: "Launch as root",
-                            value: $launchAsRoot,
-                            secondaryText: RootLaunchManager.isRunningAsRoot ? "Active" : "Inactive"
-                        )
-                        SettingsStepperRow(
+                        SettingsValueRow(label: "Role", value: RootLaunchManager.isRunningAsRoot ? "Root" : "User")
+                        SettingsMenuRow(
                             label: "Refresh interval",
                             value: $refreshInterval,
-                            range: 0.5...5,
-                            step: 0.5,
-                            formattedValue: "\(String(format: "%.1f", refreshInterval)) seconds"
+                            options: SettingsRefreshInterval.allCases
                         )
-                        SettingsToggleRow(label: "Compact performance graphs", value: $showCompactGraphs)
                     }
 
                     SettingsSection(title: "Appearance") {
                         SettingsPickerRow(label: "Theme", selection: $selectedTheme)
                         SettingsToggleRow(label: "Use macOS accent color", value: $accentFollowsSystem)
-                        SettingsToggleRow(label: "Reduce sidebar animations", value: $reduceAnimations)
+                        SettingsAccentColorRow(
+                            label: "Custom accent color",
+                            selection: $customAccentColor,
+                            isEnabled: !accentFollowsSystem
+                        )
                     }
 
                     Spacer(minLength: 0)
@@ -68,6 +63,56 @@ private enum SettingsTheme: String, CaseIterable, Identifiable {
     case dark = "Dark"
 
     var id: Self { self }
+}
+
+private enum SettingsRefreshInterval: Double, CaseIterable, Identifiable {
+    case eighth = 0.125
+    case quarter = 0.25
+    case half = 0.5
+    case one = 1
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .eighth:
+            "0.125 seconds"
+        case .quarter:
+            "0.25 seconds"
+        case .half:
+            "0.5 seconds"
+        case .one:
+            "1 second"
+        }
+    }
+}
+
+private enum SettingsAccentColor: String, CaseIterable, Identifiable {
+    case blue = "Blue"
+    case purple = "Purple"
+    case pink = "Pink"
+    case red = "Red"
+    case orange = "Orange"
+    case green = "Green"
+
+    var id: Self { self }
+
+    var color: Color {
+        switch self {
+        case .blue:
+            Color(red: 0.05, green: 0.47, blue: 0.98)
+        case .purple:
+            Color(red: 0.49, green: 0.28, blue: 0.91)
+        case .pink:
+            Color(red: 0.90, green: 0.20, blue: 0.55)
+        case .red:
+            Color(red: 0.93, green: 0.20, blue: 0.22)
+        case .orange:
+            Color(red: 0.95, green: 0.52, blue: 0.12)
+        case .green:
+            Color(red: 0.18, green: 0.64, blue: 0.34)
+        }
+    }
 }
 
 private struct SettingsSection<Content: View>: View {
@@ -92,6 +137,24 @@ private struct SettingsSection<Content: View>: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct SettingsValueRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        SettingsRowContainer {
+            Text(label)
+                .taskManagerFont(13)
+
+            Spacer()
+
+            Text(value)
+                .taskManagerFont(13)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
     }
 }
 
@@ -120,12 +183,10 @@ private struct SettingsToggleRow: View {
     }
 }
 
-private struct SettingsStepperRow: View {
+private struct SettingsMenuRow<Option: Identifiable & Hashable>: View where Option.ID == Option {
     let label: String
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-    let step: Double
-    let formattedValue: String
+    @Binding var value: Option
+    let options: [Option]
 
     var body: some View {
         SettingsRowContainer {
@@ -134,15 +195,23 @@ private struct SettingsStepperRow: View {
 
             Spacer()
 
-            Text(formattedValue)
-                .taskManagerFont(12)
-                .monospacedDigit()
-                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
-                .frame(width: 86, alignment: .trailing)
-
-            Stepper("", value: $value, in: range, step: step)
-                .labelsHidden()
+            Picker("", selection: $value) {
+                ForEach(options) { option in
+                    Text(title(for: option)).tag(option)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(width: 155, alignment: .trailing)
         }
+    }
+
+    private func title(for option: Option) -> String {
+        if let refreshInterval = option as? SettingsRefreshInterval {
+            return refreshInterval.title
+        }
+
+        return String(describing: option)
     }
 }
 
@@ -165,6 +234,45 @@ private struct SettingsPickerRow: View {
             .labelsHidden()
             .pickerStyle(.segmented)
             .frame(width: 210)
+        }
+    }
+}
+
+private struct SettingsAccentColorRow: View {
+    let label: String
+    @Binding var selection: SettingsAccentColor
+    let isEnabled: Bool
+
+    var body: some View {
+        SettingsRowContainer {
+            Text(label)
+                .taskManagerFont(13)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                ForEach(SettingsAccentColor.allCases) { accentColor in
+                    Button {
+                        guard isEnabled else { return }
+                        selection = accentColor
+                    } label: {
+                        Circle()
+                            .fill(accentColor.color)
+                            .frame(width: 22, height: 22)
+                            .overlay {
+                                if selection == accentColor {
+                                    Circle()
+                                        .stroke(WindowsTaskManagerTheme.textPrimary, lineWidth: 2)
+                                        .padding(-3)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!isEnabled)
+                    .help(accentColor.rawValue)
+                }
+            }
+            .opacity(isEnabled ? 1 : 0.35)
         }
     }
 }
