@@ -11,6 +11,7 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
     private var cachedTimeToEmptyMinutes: Int?
 
     private let timeEstimateWindow: TimeInterval = 30
+    private let minimumTimeEstimateWindow: TimeInterval = 25
     private let timeEstimateUpdateInterval: TimeInterval = 5
 
     func snapshot(includeDetails: Bool) async -> SystemBatterySnapshot {
@@ -58,24 +59,34 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
 
         let shouldUpdate = lastTimeEstimateUpdate.map { now.timeIntervalSince($0) >= timeEstimateUpdateInterval } ?? true
         if shouldUpdate {
-            let averagedCurrent = averagedCurrentMilliamps()
-
             switch mode {
             case .charging:
-                cachedTimeToFullMinutes = Self.calculatedTimeToFullMinutes(
-                    isCharging: true,
-                    isCharged: snapshot.chargeState == "Fully charged",
-                    currentChargeMilliampHours: snapshot.currentChargeMilliampHours,
-                    maxChargeMilliampHours: snapshot.maxChargeMilliampHours,
-                    currentMilliamps: averagedCurrent
-                ) ?? snapshot.timeToFullMinutes
+                let nextEstimate = robustCurrentMilliamps(for: mode, now: now).flatMap {
+                    Self.calculatedTimeToFullMinutes(
+                        isCharging: true,
+                        isCharged: snapshot.chargeState == "Fully charged",
+                        currentChargeMilliampHours: snapshot.currentChargeMilliampHours,
+                        maxChargeMilliampHours: snapshot.maxChargeMilliampHours,
+                        currentMilliamps: $0
+                    )
+                }
+                cachedTimeToFullMinutes = smoothedEstimate(
+                    previous: cachedTimeToFullMinutes,
+                    next: nextEstimate ?? snapshot.timeToFullMinutes
+                )
                 cachedTimeToEmptyMinutes = nil
             case .discharging:
-                cachedTimeToEmptyMinutes = Self.calculatedTimeToEmptyMinutes(
-                    isDischarging: true,
-                    currentChargeMilliampHours: snapshot.currentChargeMilliampHours,
-                    currentMilliamps: averagedCurrent
-                ) ?? snapshot.timeToEmptyMinutes
+                let nextEstimate = robustCurrentMilliamps(for: mode, now: now).flatMap {
+                    Self.calculatedTimeToEmptyMinutes(
+                        isDischarging: true,
+                        currentChargeMilliampHours: snapshot.currentChargeMilliampHours,
+                        currentMilliamps: $0
+                    )
+                }
+                cachedTimeToEmptyMinutes = smoothedEstimate(
+                    previous: cachedTimeToEmptyMinutes,
+                    next: nextEstimate ?? snapshot.timeToEmptyMinutes
+                )
                 cachedTimeToFullMinutes = nil
             case .idle:
                 break
@@ -102,15 +113,47 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
         return .idle
     }
 
-    private func averagedCurrentMilliamps() -> Int? {
-        guard !currentSamples.isEmpty else { return nil }
+    private func robustCurrentMilliamps(for mode: BatteryTimeMode, now: Date) -> Int? {
+        guard let oldestSample = currentSamples.first,
+              now.timeIntervalSince(oldestSample.timestamp) >= minimumTimeEstimateWindow else {
+            return nil
+        }
 
-        let average = currentSamples.reduce(0.0) { total, sample in
-            total + Double(abs(sample.currentMilliamps))
-        } / Double(currentSamples.count)
+        let values = currentSamples.compactMap { sample -> Int? in
+            switch mode {
+            case .charging:
+                guard sample.currentMilliamps > 0 else { return nil }
+            case .discharging:
+                guard sample.currentMilliamps < 0 else { return nil }
+            case .idle:
+                return nil
+            }
+
+            return abs(sample.currentMilliamps)
+        }
+        .sorted()
+
+        guard values.count >= 6 else { return nil }
+
+        let trimCount = values.count >= 10 ? max(1, Int(Double(values.count) * 0.2)) : 0
+        let trimmedValues = Array(values.dropFirst(trimCount).dropLast(trimCount))
+        let usableValues = trimmedValues.isEmpty ? values : trimmedValues
+        let average = Double(usableValues.reduce(0, +)) / Double(usableValues.count)
 
         guard average > 0 else { return nil }
         return Int(average.rounded())
+    }
+
+    private func smoothedEstimate(previous: Int?, next: Int?) -> Int? {
+        guard let next else { return previous }
+        guard let previous else { return next }
+
+        let delta = next - previous
+        let maximumStep = max(5, Int((Double(previous) * 0.06).rounded()))
+        let clampedDelta = min(max(delta, -maximumStep), maximumStep)
+        let easedDelta = Int((Double(clampedDelta) * 0.35).rounded())
+
+        return max(previous + (easedDelta == 0 && clampedDelta != 0 ? (clampedDelta > 0 ? 1 : -1) : easedDelta), 0)
     }
 
     private func resetTimeEstimateSamples(mode: BatteryTimeMode) {
