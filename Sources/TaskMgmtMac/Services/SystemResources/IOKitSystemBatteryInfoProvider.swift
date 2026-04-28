@@ -4,6 +4,14 @@ import IOKit.ps
 
 actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
     private var cachedDetails = SystemBatterySnapshot.unavailable
+    private var currentSamples: [BatteryCurrentSample] = []
+    private var currentSampleMode: BatteryTimeMode = .idle
+    private var lastTimeEstimateUpdate: Date?
+    private var cachedTimeToFullMinutes: Int?
+    private var cachedTimeToEmptyMinutes: Int?
+
+    private let timeEstimateWindow: TimeInterval = 30
+    private let timeEstimateUpdateInterval: TimeInterval = 5
 
     func snapshot(includeDetails: Bool) async -> SystemBatterySnapshot {
         let powerSourceSnapshot = Self.powerSourceSnapshot()
@@ -20,12 +28,97 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
         }
 
         let batteryDetails = Self.appleSmartBatterySnapshot()
-        let snapshot = batteryDetails.isPresent
+        let mergedSnapshot = batteryDetails.isPresent
             ? batteryDetails.mergingLightweightValues(from: powerSourceSnapshot)
             : powerSourceSnapshot
+        let snapshot = snapshotWithSmoothedTimeEstimate(mergedSnapshot)
 
         cachedDetails = snapshot
         return snapshot
+    }
+
+    private func snapshotWithSmoothedTimeEstimate(_ snapshot: SystemBatterySnapshot) -> SystemBatterySnapshot {
+        let mode = batteryTimeMode(for: snapshot)
+        let now = Date()
+
+        guard mode != .idle else {
+            resetTimeEstimateSamples(mode: mode)
+            return snapshot
+        }
+
+        if mode != currentSampleMode {
+            resetTimeEstimateSamples(mode: mode)
+        }
+
+        if let currentMilliamps = snapshot.currentMilliamps, currentMilliamps != 0 {
+            currentSamples.append(BatteryCurrentSample(timestamp: now, currentMilliamps: currentMilliamps))
+        }
+
+        currentSamples.removeAll { now.timeIntervalSince($0.timestamp) > timeEstimateWindow }
+
+        let shouldUpdate = lastTimeEstimateUpdate.map { now.timeIntervalSince($0) >= timeEstimateUpdateInterval } ?? true
+        if shouldUpdate {
+            let averagedCurrent = averagedCurrentMilliamps()
+
+            switch mode {
+            case .charging:
+                cachedTimeToFullMinutes = Self.calculatedTimeToFullMinutes(
+                    isCharging: true,
+                    isCharged: snapshot.chargeState == "Fully charged",
+                    currentChargeMilliampHours: snapshot.currentChargeMilliampHours,
+                    maxChargeMilliampHours: snapshot.maxChargeMilliampHours,
+                    currentMilliamps: averagedCurrent
+                ) ?? snapshot.timeToFullMinutes
+                cachedTimeToEmptyMinutes = nil
+            case .discharging:
+                cachedTimeToEmptyMinutes = Self.calculatedTimeToEmptyMinutes(
+                    isDischarging: true,
+                    currentChargeMilliampHours: snapshot.currentChargeMilliampHours,
+                    currentMilliamps: averagedCurrent
+                ) ?? snapshot.timeToEmptyMinutes
+                cachedTimeToFullMinutes = nil
+            case .idle:
+                break
+            }
+
+            lastTimeEstimateUpdate = now
+        }
+
+        return snapshot.replacingTimeEstimates(
+            timeToFullMinutes: cachedTimeToFullMinutes ?? snapshot.timeToFullMinutes,
+            timeToEmptyMinutes: cachedTimeToEmptyMinutes ?? snapshot.timeToEmptyMinutes
+        )
+    }
+
+    private func batteryTimeMode(for snapshot: SystemBatterySnapshot) -> BatteryTimeMode {
+        if snapshot.chargeState == "Charging" {
+            return .charging
+        }
+
+        if snapshot.powerSource == "Battery" {
+            return .discharging
+        }
+
+        return .idle
+    }
+
+    private func averagedCurrentMilliamps() -> Int? {
+        guard !currentSamples.isEmpty else { return nil }
+
+        let average = currentSamples.reduce(0.0) { total, sample in
+            total + Double(abs(sample.currentMilliamps))
+        } / Double(currentSamples.count)
+
+        guard average > 0 else { return nil }
+        return Int(average.rounded())
+    }
+
+    private func resetTimeEstimateSamples(mode: BatteryTimeMode) {
+        currentSamples = []
+        currentSampleMode = mode
+        lastTimeEstimateUpdate = nil
+        cachedTimeToFullMinutes = nil
+        cachedTimeToEmptyMinutes = nil
     }
 
     private static func powerSourceSnapshot() -> SystemBatterySnapshot {
@@ -123,18 +216,6 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
         let adapterDetails = dictionaryProperty("AdapterDetails", from: entry)
             ?? arrayProperty("AppleRawAdapterDetails", from: entry)?.first
         let chargerData = dictionaryProperty("ChargerData", from: entry)
-        let timeToFull = calculatedTimeToFullMinutes(
-            isCharging: isCharging,
-            isCharged: fullyCharged,
-            currentChargeMilliampHours: currentChargeMilliampHours,
-            maxChargeMilliampHours: maxChargeMilliampHours,
-            currentMilliamps: currentMilliamps
-        ) ?? intProperty("AvgTimeToFull", from: entry).flatMap(validTimeRemaining)
-        let timeToEmpty = calculatedTimeToEmptyMinutes(
-            isDischarging: !externalConnected,
-            currentChargeMilliampHours: currentChargeMilliampHours,
-            currentMilliamps: currentMilliamps
-        ) ?? intProperty("AvgTimeToEmpty", from: entry).flatMap(validTimeRemaining)
 
         return SystemBatterySnapshot(
             isPresent: true,
@@ -157,8 +238,8 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
             voltageVolts: voltageMillivolts.map { Double($0) / 1000 },
             currentMilliamps: currentMilliamps,
             powerWatts: powerWatts,
-            timeToFullMinutes: timeToFull,
-            timeToEmptyMinutes: timeToEmpty,
+            timeToFullMinutes: intProperty("AvgTimeToFull", from: entry).flatMap(validTimeRemaining),
+            timeToEmptyMinutes: intProperty("AvgTimeToEmpty", from: entry).flatMap(validTimeRemaining),
             adapterName: stringValue(adapterDetails?["Name"]) ?? stringValue(adapterDetails?["Description"]) ?? "--",
             adapterWatts: intValue(adapterDetails?["Watts"])
         )
@@ -383,7 +464,42 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
     }
 }
 
+private enum BatteryTimeMode {
+    case charging
+    case discharging
+    case idle
+}
+
+private struct BatteryCurrentSample {
+    let timestamp: Date
+    let currentMilliamps: Int
+}
+
 private extension SystemBatterySnapshot {
+    func replacingTimeEstimates(timeToFullMinutes: Int?, timeToEmptyMinutes: Int?) -> SystemBatterySnapshot {
+        SystemBatterySnapshot(
+            isPresent: isPresent,
+            name: name,
+            levelPercent: levelPercent,
+            powerSource: powerSource,
+            chargeState: chargeState,
+            chargeType: chargeType,
+            technology: technology,
+            cycleCount: cycleCount,
+            currentChargeMilliampHours: currentChargeMilliampHours,
+            maxChargeMilliampHours: maxChargeMilliampHours,
+            designCapacityMilliampHours: designCapacityMilliampHours,
+            temperatureCelsius: temperatureCelsius,
+            voltageVolts: voltageVolts,
+            currentMilliamps: currentMilliamps,
+            powerWatts: powerWatts,
+            timeToFullMinutes: timeToFullMinutes,
+            timeToEmptyMinutes: timeToEmptyMinutes,
+            adapterName: adapterName,
+            adapterWatts: adapterWatts
+        )
+    }
+
     func mergingLightweightValues(from lightweightSnapshot: SystemBatterySnapshot) -> SystemBatterySnapshot {
         SystemBatterySnapshot(
             isPresent: isPresent || lightweightSnapshot.isPresent,
