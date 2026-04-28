@@ -259,74 +259,107 @@ private struct ProcessDetailsStatsTab: View {
 
 private struct ProcessDetailsModulesTab: View {
     let row: ProcessTableRow
+    @State private var modules: [ProcessModuleInfo] = []
+    @State private var isLoading = true
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                if let executablePath = row.metric.executablePath {
-                    ProcessModuleRow(
-                        name: URL(fileURLWithPath: executablePath).lastPathComponent,
-                        path: executablePath,
-                        detail: "Main executable",
-                        sizeText: diskSize(for: executablePath)
-                    )
+        VStack(spacing: 0) {
+            moduleSummary
+
+            Divider()
+
+            if isLoading {
+                loadingView
+            } else if modules.isEmpty {
+                emptyView
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(modules) { module in
+                            ProcessModuleRow(module: module)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
                 }
-
-                if let bundlePath = appBundlePath(from: row.metric.executablePath) {
-                    ProcessModuleRow(
-                        name: URL(fileURLWithPath: bundlePath).lastPathComponent,
-                        path: bundlePath,
-                        detail: "Application bundle",
-                        sizeText: diskSize(for: bundlePath)
-                    )
-                }
-
-                ProcessModuleRow(
-                    name: "Dynamic libraries",
-                    path: "Module provider pending",
-                    detail: "dylib, framework, bundle, and mapped file regions",
-                    sizeText: "Soon"
-                )
-
-                ProcessModuleRow(
-                    name: "Memory mapped files",
-                    path: "VM region provider pending",
-                    detail: "Mapped size and resident memory per file",
-                    sizeText: "Soon"
-                )
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
         }
+        .background(WindowsTaskManagerTheme.table)
+        .task(id: row.metric.pid) {
+            await loadModules()
+        }
+    }
+
+    private var moduleSummary: some View {
+        HStack(spacing: 14) {
+            Text("Loaded modules")
+                .taskManagerFont(14, weight: .semibold)
+
+            Spacer()
+
+            Text(summaryText)
+                .taskManagerFont(12)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 24)
+        .frame(height: 44)
         .background(WindowsTaskManagerTheme.table)
     }
 
-    private func appBundlePath(from executablePath: String?) -> String? {
-        guard let executablePath else { return nil }
-
-        let components = URL(fileURLWithPath: executablePath).pathComponents
-        var pathComponents: [String] = []
-
-        for component in components {
-            pathComponents.append(component)
-
-            guard component.hasSuffix(".app") else {
-                continue
-            }
-
-            return NSString.path(withComponents: pathComponents)
+    private var summaryText: String {
+        if isLoading {
+            return "Scanning memory map..."
         }
 
-        return nil
+        let residentBytes = modules.reduce(UInt64(0)) { $0 + $1.residentBytes }
+        return "\(modules.count) items · \(byteCount(residentBytes)) resident"
     }
 
-    private func diskSize(for path: String) -> String {
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
-              let size = attributes[.size] as? NSNumber else {
-            return "Unknown"
-        }
+    private var loadingView: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
 
-        return ByteCountFormatter.string(fromByteCount: size.int64Value, countStyle: .file)
+            Text("Scanning memory mapped files")
+                .taskManagerFont(13)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 8) {
+            Text("No mapped modules found")
+                .taskManagerFont(15, weight: .semibold)
+
+            Text("macOS did not return readable mapped file paths for this process.")
+                .taskManagerFont(13)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+
+    private func loadModules() async {
+        isLoading = true
+        modules = []
+
+        let pid = row.metric.pid
+        let executablePath = row.metric.executablePath
+        let loadedModules = await Task.detached(priority: .utility) {
+            LibprocProcessModuleProvider().modules(for: pid, executablePath: executablePath)
+        }.value
+
+        guard !Task.isCancelled else { return }
+
+        modules = loadedModules
+        isLoading = false
+    }
+
+    private func byteCount(_ bytes: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .memory)
     }
 }
 
@@ -449,25 +482,22 @@ private struct DetailSection<Content: View>: View {
 }
 
 private struct ProcessModuleRow: View {
-    let name: String
-    let path: String
-    let detail: String
-    let sizeText: String
+    let module: ProcessModuleInfo
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(name)
+                Text(module.name)
                     .taskManagerFont(15, weight: .semibold)
                     .lineLimit(1)
 
-                Text(path)
+                Text(module.path)
                     .taskManagerFont(12)
                     .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
-                Text(detail)
+                Text(detailText)
                     .taskManagerFont(11)
                     .foregroundStyle(WindowsTaskManagerTheme.textMuted)
                     .lineLimit(1)
@@ -475,11 +505,17 @@ private struct ProcessModuleRow: View {
 
             Spacer(minLength: 12)
 
-            Text(sizeText)
-                .taskManagerFont(15, weight: .medium)
-                .monospacedDigit()
-                .foregroundStyle(WindowsTaskManagerTheme.accent)
-                .frame(width: 96, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(byteCount(module.residentBytes))
+                    .taskManagerFont(15, weight: .semibold)
+                    .monospacedDigit()
+                    .foregroundStyle(WindowsTaskManagerTheme.accent)
+
+                Text("resident")
+                    .taskManagerFont(11)
+                    .foregroundStyle(WindowsTaskManagerTheme.textMuted)
+            }
+            .frame(width: 108, alignment: .trailing)
         }
         .padding(.vertical, 13)
         .overlay(alignment: .bottom) {
@@ -487,6 +523,15 @@ private struct ProcessModuleRow: View {
                 .fill(WindowsTaskManagerTheme.separator)
                 .frame(height: 1)
         }
+    }
+
+    private var detailText: String {
+        let diskText = module.diskBytes.map { "disk \(byteCount($0))" } ?? "disk unknown"
+        return "\(module.kind.rawValue) · mapped \(byteCount(module.mappedBytes)) · \(module.regionCount) regions · \(module.protectionSummary) · \(diskText)"
+    }
+
+    private func byteCount(_ bytes: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .memory)
     }
 }
 
