@@ -365,25 +365,143 @@ private struct ProcessDetailsModulesTab: View {
 
 private struct ProcessDetailsThreadsTab: View {
     let row: ProcessTableRow
+    @State private var threads: [ProcessThreadInfo] = []
+    @State private var isLoading = true
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                DetailSection(title: "Thread summary") {
-                    DetailRow(label: "Thread count", value: row.isGroup ? "Grouped process provider pending" : "Provider pending")
-                    DetailRow(label: "Running threads", value: "Provider pending")
-                    DetailRow(label: "Highest CPU thread", value: "Provider pending")
-                }
+        VStack(spacing: 0) {
+            threadSummary
 
-                LazyVStack(spacing: 0) {
-                    ProcessThreadPreviewRow(name: "Thread list", state: "Provider pending", cpu: "Soon", priority: "Soon")
-                    ProcessThreadPreviewRow(name: "Per-thread CPU", state: "Design ready", cpu: "Soon", priority: "Soon")
-                    ProcessThreadPreviewRow(name: "Per-thread priority", state: "Design ready", cpu: "Soon", priority: "Soon")
+            Divider()
+
+            if isLoading {
+                loadingView
+            } else if threads.isEmpty {
+                emptyView
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ProcessThreadListHeader()
+
+                        ForEach(threads) { thread in
+                            ProcessThreadPreviewRow(thread: thread)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
                 }
             }
-            .padding(24)
         }
         .background(WindowsTaskManagerTheme.table)
+        .task(id: row.metric.pid) {
+            await refreshLoop()
+        }
+    }
+
+    private var threadSummary: some View {
+        HStack(spacing: 14) {
+            Text("Threads")
+                .taskManagerFont(14, weight: .semibold)
+
+            Spacer()
+
+            Text(summaryText)
+                .taskManagerFont(12)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 24)
+        .frame(height: 44)
+        .background(WindowsTaskManagerTheme.table)
+    }
+
+    private var summaryText: String {
+        if isLoading {
+            return "Loading thread activity..."
+        }
+
+        let totalCPU = threads.reduce(0) { $0 + $1.cpuPercent }
+        return "\(threads.count) threads · \(percent(totalCPU)) CPU"
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+
+            Text("Loading per-thread CPU and priority")
+                .taskManagerFont(13)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 8) {
+            Text("No thread data available")
+                .taskManagerFont(15, weight: .semibold)
+
+            Text("macOS did not return readable thread information for this process.")
+                .taskManagerFont(13)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+
+    private func refreshLoop() async {
+        isLoading = true
+        threads = []
+
+        while !Task.isCancelled {
+            await loadThreads()
+
+            do {
+                try await Task.sleep(for: .seconds(1))
+            } catch {
+                break
+            }
+        }
+    }
+
+    private func loadThreads() async {
+        let pid = row.metric.pid
+        let loadedThreads = await Task.detached(priority: .utility) {
+            LibprocProcessThreadProvider().threads(for: pid)
+        }.value
+
+        guard !Task.isCancelled else { return }
+
+        threads = loadedThreads
+        isLoading = false
+    }
+
+    private func percent(_ value: Double) -> String {
+        value == 0 ? "0%" : String(format: "%.1f%%", value)
+    }
+}
+
+private struct ProcessThreadListHeader: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            Text("Name")
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("CPU")
+                .frame(width: 76, alignment: .trailing)
+
+            Text("Priority")
+                .frame(width: 86, alignment: .trailing)
+        }
+        .taskManagerFont(12, weight: .semibold)
+        .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        .padding(.vertical, 9)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(WindowsTaskManagerTheme.separator)
+                .frame(height: 1)
+        }
     }
 }
 
@@ -536,19 +654,16 @@ private struct ProcessModuleRow: View {
 }
 
 private struct ProcessThreadPreviewRow: View {
-    let name: String
-    let state: String
-    let cpu: String
-    let priority: String
+    let thread: ProcessThreadInfo
 
     var body: some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(name)
+                Text(thread.displayName)
                     .taskManagerFont(14, weight: .semibold)
                     .lineLimit(1)
 
-                Text(state)
+                Text(detailText)
                     .taskManagerFont(12)
                     .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
                     .lineLimit(1)
@@ -556,15 +671,16 @@ private struct ProcessThreadPreviewRow: View {
 
             Spacer()
 
-            Text(cpu)
+            Text(percent(thread.cpuPercent))
                 .taskManagerFont(13, weight: .medium)
                 .monospacedDigit()
-                .frame(width: 64, alignment: .trailing)
+                .foregroundStyle(WindowsTaskManagerTheme.accent)
+                .frame(width: 76, alignment: .trailing)
 
-            Text(priority)
+            Text("\(thread.currentPriority)")
                 .taskManagerFont(13, weight: .medium)
                 .monospacedDigit()
-                .frame(width: 72, alignment: .trailing)
+                .frame(width: 86, alignment: .trailing)
         }
         .padding(.vertical, 12)
         .overlay(alignment: .bottom) {
@@ -572,6 +688,14 @@ private struct ProcessThreadPreviewRow: View {
                 .fill(WindowsTaskManagerTheme.separator)
                 .frame(height: 1)
         }
+    }
+
+    private var detailText: String {
+        "ID \(thread.threadID) · \(thread.state.rawValue) · base \(thread.basePriority) · max \(thread.maxPriority) · policy \(thread.policy)"
+    }
+
+    private func percent(_ value: Double) -> String {
+        value == 0 ? "0%" : String(format: "%.1f%%", value)
     }
 }
 
