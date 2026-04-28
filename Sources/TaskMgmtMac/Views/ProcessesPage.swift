@@ -36,6 +36,7 @@ struct ProcessesPage: View {
                     onContextEndTask: requestEndTask(for:),
                     onContextOpenDetails: openDetails(for:),
                     onContextRevealFile: revealFile(for:),
+                    onContextSearchOnline: searchOnline(for:),
                     onScrollActivity: viewModel.setProcessTableScrolling(_:)
                 )
             } else {
@@ -101,6 +102,24 @@ struct ProcessesPage: View {
 
         let url = URL(fileURLWithPath: executablePath)
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func searchOnline(for row: ProcessTableRow) {
+        viewModel.selectProcessRow(row)
+
+        var components = URLComponents(string: "https://www.google.com/search")
+        components?.queryItems = [
+            URLQueryItem(name: "q", value: "\(row.metric.name) macOS")
+        ]
+
+        guard let url = components?.url else { return }
+
+        if let safariURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+            let configuration = NSWorkspace.OpenConfiguration()
+            NSWorkspace.shared.open([url], withApplicationAt: safariURL, configuration: configuration)
+        } else {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 
