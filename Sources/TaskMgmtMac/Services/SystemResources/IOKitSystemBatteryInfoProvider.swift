@@ -108,6 +108,9 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
             return .unavailable
         }
 
+        let currentChargeMilliampHours = intProperty("AppleRawCurrentCapacity", from: entry)
+        let maxChargeMilliampHours = intProperty("AppleRawMaxCapacity", from: entry)
+            ?? intProperty("NominalChargeCapacity", from: entry)
         let level = intProperty("CurrentCapacity", from: entry) ?? 0
         let isCharging = boolProperty("IsCharging", from: entry) ?? false
         let fullyCharged = boolProperty("FullyCharged", from: entry) ?? false
@@ -120,6 +123,18 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
         let adapterDetails = dictionaryProperty("AdapterDetails", from: entry)
             ?? arrayProperty("AppleRawAdapterDetails", from: entry)?.first
         let chargerData = dictionaryProperty("ChargerData", from: entry)
+        let timeToFull = calculatedTimeToFullMinutes(
+            isCharging: isCharging,
+            isCharged: fullyCharged,
+            currentChargeMilliampHours: currentChargeMilliampHours,
+            maxChargeMilliampHours: maxChargeMilliampHours,
+            currentMilliamps: currentMilliamps
+        ) ?? intProperty("AvgTimeToFull", from: entry).flatMap(validTimeRemaining)
+        let timeToEmpty = calculatedTimeToEmptyMinutes(
+            isDischarging: !externalConnected,
+            currentChargeMilliampHours: currentChargeMilliampHours,
+            currentMilliamps: currentMilliamps
+        ) ?? intProperty("AvgTimeToEmpty", from: entry).flatMap(validTimeRemaining)
 
         return SystemBatterySnapshot(
             isPresent: true,
@@ -135,16 +150,15 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
             ),
             technology: "Li-ion",
             cycleCount: intProperty("CycleCount", from: entry),
-            currentChargeMilliampHours: intProperty("AppleRawCurrentCapacity", from: entry),
-            maxChargeMilliampHours: intProperty("AppleRawMaxCapacity", from: entry)
-                ?? intProperty("NominalChargeCapacity", from: entry),
+            currentChargeMilliampHours: currentChargeMilliampHours,
+            maxChargeMilliampHours: maxChargeMilliampHours,
             designCapacityMilliampHours: intProperty("DesignCapacity", from: entry),
             temperatureCelsius: temperatureCelsius,
             voltageVolts: voltageMillivolts.map { Double($0) / 1000 },
             currentMilliamps: currentMilliamps,
             powerWatts: powerWatts,
-            timeToFullMinutes: intProperty("AvgTimeToFull", from: entry).flatMap(validTimeRemaining),
-            timeToEmptyMinutes: intProperty("AvgTimeToEmpty", from: entry).flatMap(validTimeRemaining),
+            timeToFullMinutes: timeToFull,
+            timeToEmptyMinutes: timeToEmpty,
             adapterName: stringValue(adapterDetails?["Name"]) ?? stringValue(adapterDetails?["Description"]) ?? "--",
             adapterWatts: intValue(adapterDetails?["Watts"])
         )
@@ -262,6 +276,48 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
         }
 
         return Double(voltageMillivolts * currentMilliamps) / 1_000_000
+    }
+
+    private static func calculatedTimeToFullMinutes(
+        isCharging: Bool,
+        isCharged: Bool,
+        currentChargeMilliampHours: Int?,
+        maxChargeMilliampHours: Int?,
+        currentMilliamps: Int?
+    ) -> Int? {
+        guard isCharging, !isCharged,
+              let currentChargeMilliampHours,
+              let maxChargeMilliampHours,
+              let currentMilliamps else {
+            return nil
+        }
+
+        let remainingMilliampHours = max(maxChargeMilliampHours - currentChargeMilliampHours, 0)
+        return estimatedMinutes(milliampHours: remainingMilliampHours, currentMilliamps: currentMilliamps)
+    }
+
+    private static func calculatedTimeToEmptyMinutes(
+        isDischarging: Bool,
+        currentChargeMilliampHours: Int?,
+        currentMilliamps: Int?
+    ) -> Int? {
+        guard isDischarging,
+              let currentChargeMilliampHours,
+              let currentMilliamps else {
+            return nil
+        }
+
+        return estimatedMinutes(milliampHours: currentChargeMilliampHours, currentMilliamps: currentMilliamps)
+    }
+
+    private static func estimatedMinutes(milliampHours: Int, currentMilliamps: Int) -> Int? {
+        let absoluteCurrent = abs(currentMilliamps)
+        guard milliampHours > 0, absoluteCurrent > 0 else {
+            return nil
+        }
+
+        let minutes = Int((Double(milliampHours) / Double(absoluteCurrent) * 60).rounded())
+        return validTimeRemaining(minutes)
     }
 
     private static func validTimeRemaining(_ minutes: Int) -> Int? {
