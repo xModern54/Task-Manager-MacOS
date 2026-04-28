@@ -53,6 +53,7 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
             let isCharging = boolValue(description[kIOPSIsChargingKey]) ?? false
             let isCharged = boolValue(description[kIOPSIsChargedKey]) ?? false
             let timeToFull = intValue(description[kIOPSTimeToFullChargeKey]).flatMap(validTimeRemaining)
+            let timeToEmpty = intValue(description[kIOPSTimeToEmptyKey]).flatMap(validTimeRemaining)
 
             return SystemBatterySnapshot(
                 isPresent: true,
@@ -71,6 +72,7 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
                 currentMilliamps: nil,
                 powerWatts: nil,
                 timeToFullMinutes: timeToFull,
+                timeToEmptyMinutes: timeToEmpty,
                 adapterName: "--",
                 adapterWatts: nil
             )
@@ -142,6 +144,7 @@ actor IOKitSystemBatteryInfoProvider: SystemBatteryInfoProviding {
             currentMilliamps: currentMilliamps,
             powerWatts: powerWatts,
             timeToFullMinutes: intProperty("AvgTimeToFull", from: entry).flatMap(validTimeRemaining),
+            timeToEmptyMinutes: intProperty("AvgTimeToEmpty", from: entry).flatMap(validTimeRemaining),
             adapterName: stringValue(adapterDetails?["Name"]) ?? stringValue(adapterDetails?["Description"]) ?? "--",
             adapterWatts: intValue(adapterDetails?["Watts"])
         )
@@ -343,6 +346,7 @@ private extension SystemBatterySnapshot {
             currentMilliamps: currentMilliamps,
             powerWatts: powerWatts,
             timeToFullMinutes: lightweightSnapshot.timeToFullMinutes ?? timeToFullMinutes,
+            timeToEmptyMinutes: lightweightSnapshot.timeToEmptyMinutes ?? timeToEmptyMinutes,
             adapterName: adapterName,
             adapterWatts: adapterWatts
         )

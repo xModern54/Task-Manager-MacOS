@@ -145,6 +145,7 @@ struct PerformanceDevice: Identifiable, Hashable {
                 PerformanceStat(label: "Max charge", value: "--"),
                 PerformanceStat(label: "Level", value: "--"),
                 PerformanceStat(label: "Time to full", value: "--"),
+                PerformanceStat(label: "Time to empty", value: "--"),
                 PerformanceStat(label: "Adapter", value: "--"),
                 PerformanceStat(label: "Package power", value: "--")
             ]

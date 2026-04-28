@@ -21,6 +21,7 @@ struct SystemBatterySnapshot: Sendable {
     let currentMilliamps: Int?
     let powerWatts: Double?
     let timeToFullMinutes: Int?
+    let timeToEmptyMinutes: Int?
     let adapterName: String
     let adapterWatts: Int?
 
@@ -41,6 +42,7 @@ struct SystemBatterySnapshot: Sendable {
         currentMilliamps: nil,
         powerWatts: nil,
         timeToFullMinutes: nil,
+        timeToEmptyMinutes: nil,
         adapterName: "--",
         adapterWatts: nil
     )

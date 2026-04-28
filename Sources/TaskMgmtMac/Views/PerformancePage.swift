@@ -772,39 +772,43 @@ private extension PerformanceDevice {
         } else {
             adapterText = snapshot.adapterName
         }
+        let hasAdapter = adapterText != "--"
+        let batteryTimeStat = batteryTimeStat(from: snapshot)
 
-        let updatedStats = stats.map { stat in
+        let updatedStats = stats.compactMap { stat -> PerformanceStat? in
             switch stat.label {
             case "Power source":
-                PerformanceStat(label: stat.label, value: snapshot.powerSource)
+                return PerformanceStat(label: stat.label, value: snapshot.powerSource)
             case "Technology":
-                PerformanceStat(label: stat.label, value: snapshot.technology)
+                return PerformanceStat(label: stat.label, value: snapshot.technology)
             case "Temperature":
-                PerformanceStat(label: stat.label, value: formattedTemperature(snapshot.temperatureCelsius))
+                return PerformanceStat(label: stat.label, value: formattedTemperature(snapshot.temperatureCelsius))
             case "Voltage":
-                PerformanceStat(label: stat.label, value: formattedVolts(snapshot.voltageVolts))
+                return PerformanceStat(label: stat.label, value: formattedVolts(snapshot.voltageVolts))
             case "Current now":
-                PerformanceStat(label: stat.label, value: formattedMilliamps(snapshot.currentMilliamps))
+                return PerformanceStat(label: stat.label, value: formattedMilliamps(snapshot.currentMilliamps))
             case "Power now":
-                PerformanceStat(label: stat.label, value: formattedWatts(snapshot.powerWatts))
+                return PerformanceStat(label: stat.label, value: formattedWatts(snapshot.powerWatts))
             case "Charge type":
-                PerformanceStat(label: stat.label, value: snapshot.chargeType)
+                return PerformanceStat(label: stat.label, value: snapshot.chargeType)
             case "Cycles":
-                PerformanceStat(label: stat.label, value: snapshot.cycleCount.map(String.init) ?? "--")
+                return PerformanceStat(label: stat.label, value: snapshot.cycleCount.map(String.init) ?? "--")
             case "Current charge":
-                PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.currentChargeMilliampHours))
+                return PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.currentChargeMilliampHours))
             case "Max charge":
-                PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.maxChargeMilliampHours))
+                return PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.maxChargeMilliampHours))
             case "Level":
-                PerformanceStat(label: stat.label, value: "\(snapshot.levelPercent)%")
+                return PerformanceStat(label: stat.label, value: "\(snapshot.levelPercent)%")
             case "Time to full":
-                PerformanceStat(label: stat.label, value: formattedMinutes(snapshot.timeToFullMinutes))
+                return batteryTimeStat.label == "Time to full" ? batteryTimeStat : nil
+            case "Time to empty":
+                return batteryTimeStat.label == "Time to empty" ? batteryTimeStat : nil
             case "Adapter":
-                PerformanceStat(label: stat.label, value: adapterText)
+                return hasAdapter ? PerformanceStat(label: stat.label, value: adapterText) : nil
             case "Package power":
-                PerformanceStat(label: stat.label, value: formattedWatts(sensorSnapshot.combinedPowerWatts))
+                return PerformanceStat(label: stat.label, value: formattedWatts(sensorSnapshot.combinedPowerWatts))
             default:
-                stat
+                return stat
             }
         }
 
@@ -820,6 +824,18 @@ private extension PerformanceDevice {
             samples: samples.isEmpty ? [Double(snapshot.levelPercent)] : samples,
             stats: updatedStats
         )
+    }
+
+    private func batteryTimeStat(from snapshot: SystemBatterySnapshot) -> PerformanceStat {
+        if snapshot.chargeState == "Charging" {
+            return PerformanceStat(label: "Time to full", value: formattedMinutes(snapshot.timeToFullMinutes))
+        }
+
+        if snapshot.powerSource == "Battery" {
+            return PerformanceStat(label: "Time to empty", value: formattedMinutes(snapshot.timeToEmptyMinutes))
+        }
+
+        return PerformanceStat(label: "Time to full", value: "--")
     }
 }
 
