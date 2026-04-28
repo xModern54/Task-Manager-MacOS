@@ -1,3 +1,4 @@
+@preconcurrency import AppKit
 import SwiftUI
 
 struct ProcessesPage: View {
@@ -31,6 +32,10 @@ struct ProcessesPage: View {
                     onSort: viewModel.sort(by:),
                     onSelectProcess: viewModel.selectProcess(_:),
                     onGroupTap: viewModel.selectAndToggleProcessGroup(_:),
+                    onContextToggleGroup: viewModel.selectAndToggleProcessGroup(_:),
+                    onContextEndTask: requestEndTask(for:),
+                    onContextOpenDetails: openDetails(for:),
+                    onContextRevealFile: revealFile(for:),
                     onScrollActivity: viewModel.setProcessTableScrolling(_:)
                 )
             } else {
@@ -77,6 +82,25 @@ struct ProcessesPage: View {
         }
 
         return "End \(viewModel.selectedTerminationTitle)?"
+    }
+
+    private func requestEndTask(for row: ProcessTableRow) {
+        viewModel.selectProcessRow(row)
+        isEndTaskConfirmationPresented = true
+    }
+
+    private func openDetails(for row: ProcessTableRow) {
+        viewModel.selectProcessRow(row)
+        ProcessDetailsWindowPresenter.shared.open(row: row)
+    }
+
+    private func revealFile(for row: ProcessTableRow) {
+        viewModel.selectProcessRow(row)
+
+        guard let executablePath = row.metric.executablePath else { return }
+
+        let url = URL(fileURLWithPath: executablePath)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 }
 

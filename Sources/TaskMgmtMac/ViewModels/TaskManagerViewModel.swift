@@ -205,6 +205,16 @@ final class TaskManagerViewModel: ObservableObject {
         selectedProcessGroupID = nil
     }
 
+    func selectProcessRow(_ row: ProcessTableRow) {
+        if row.isGroup {
+            selectedProcessGroupID = row.id
+            selectedProcessID = nil
+        } else {
+            selectedProcessID = row.metric.id
+            selectedProcessGroupID = nil
+        }
+    }
+
     func selectAndToggleProcessGroup(_ groupID: ProcessTableRow.ID) {
         selectedProcessGroupID = groupID
         selectedProcessID = nil

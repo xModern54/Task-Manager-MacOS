@@ -11,6 +11,10 @@ struct ProcessTableView: View {
     let onSort: (ProcessSortColumn) -> Void
     let onSelectProcess: (ProcessMetric.ID) -> Void
     let onGroupTap: (ProcessTableRow.ID) -> Void
+    let onContextToggleGroup: (ProcessTableRow.ID) -> Void
+    let onContextEndTask: (ProcessTableRow) -> Void
+    let onContextOpenDetails: (ProcessTableRow) -> Void
+    let onContextRevealFile: (ProcessTableRow) -> Void
     let onScrollActivity: (Bool) -> Void
     @State private var displayedRows: [ProcessTableRow] = []
     @State private var isScrolling = false
@@ -28,7 +32,11 @@ struct ProcessTableView: View {
                 ForEach(visibleRows) { row in
                     ProcessRow(
                         row: row,
-                        isSelected: row.isGroup ? selectedProcessGroupID == row.id : selectedProcessID == row.metric.id
+                        isSelected: row.isGroup ? selectedProcessGroupID == row.id : selectedProcessID == row.metric.id,
+                        onToggleGroup: onContextToggleGroup,
+                        onEndTask: onContextEndTask,
+                        onOpenDetails: onContextOpenDetails,
+                        onRevealFile: onContextRevealFile
                     )
                     .onTapGesture {
                         if row.isGroup {
@@ -189,6 +197,10 @@ private struct SummaryHeaderCell: View {
 private struct ProcessRow: View {
     let row: ProcessTableRow
     let isSelected: Bool
+    let onToggleGroup: (ProcessTableRow.ID) -> Void
+    let onEndTask: (ProcessTableRow) -> Void
+    let onOpenDetails: (ProcessTableRow) -> Void
+    let onRevealFile: (ProcessTableRow) -> Void
     @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
@@ -210,25 +222,33 @@ private struct ProcessRow: View {
         }
         .contentShape(Rectangle())
         .contextMenu {
-            Button("Expand") {}
-            Button("Switch to") {}
-                .disabled(true)
-            Button("End task") {}
-            Menu("Resource values") {
-                Button("Percents") {}
-                Button("Values") {}
+            if row.isGroup {
+                Button(row.isExpanded ? "Collapse" : "Expand") {
+                    onToggleGroup(row.id)
+                }
+
+                Divider()
             }
+
+            Button("End task") {
+                onEndTask(row)
+            }
+
             Divider()
-            Button("Debug") {}
-                .disabled(true)
-            Button("Create memory dump file") {}
-                .disabled(true)
-            Divider()
-            Button("Go to details") {}
-            Button("Open file location") {}
-            Button("Search online") {}
-            Button("Properties") {}
-                .disabled(true)
+
+            Button("Go to details") {
+                onOpenDetails(row)
+            }
+
+            Button("Open file location") {
+                onRevealFile(row)
+            }
+            .disabled(row.metric.executablePath == nil)
+
+            Button("Properties") {
+                onRevealFile(row)
+            }
+            .disabled(row.metric.executablePath == nil)
         }
     }
 
