@@ -37,6 +37,7 @@ struct ProcessesPage: View {
                     onContextOpenDetails: openDetails(for:),
                     onContextRevealFile: revealFile(for:),
                     onContextSearchOnline: searchOnline(for:),
+                    onContextCopyInfo: copyInfo(for:),
                     onScrollActivity: viewModel.setProcessTableScrolling(_:)
                 )
             } else {
@@ -120,6 +121,14 @@ struct ProcessesPage: View {
         } else {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    private func copyInfo(for row: ProcessTableRow) {
+        viewModel.selectProcessRow(row)
+
+        let text = ProcessClipboardInfoBuilder.text(for: row)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 

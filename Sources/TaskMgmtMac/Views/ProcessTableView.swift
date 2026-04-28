@@ -16,6 +16,7 @@ struct ProcessTableView: View {
     let onContextOpenDetails: (ProcessTableRow) -> Void
     let onContextRevealFile: (ProcessTableRow) -> Void
     let onContextSearchOnline: (ProcessTableRow) -> Void
+    let onContextCopyInfo: (ProcessTableRow) -> Void
     let onScrollActivity: (Bool) -> Void
     @State private var displayedRows: [ProcessTableRow] = []
     @State private var isScrolling = false
@@ -38,7 +39,8 @@ struct ProcessTableView: View {
                         onEndTask: onContextEndTask,
                         onOpenDetails: onContextOpenDetails,
                         onRevealFile: onContextRevealFile,
-                        onSearchOnline: onContextSearchOnline
+                        onSearchOnline: onContextSearchOnline,
+                        onCopyInfo: onContextCopyInfo
                     )
                     .onTapGesture {
                         if row.isGroup {
@@ -204,6 +206,7 @@ private struct ProcessRow: View {
     let onOpenDetails: (ProcessTableRow) -> Void
     let onRevealFile: (ProcessTableRow) -> Void
     let onSearchOnline: (ProcessTableRow) -> Void
+    let onCopyInfo: (ProcessTableRow) -> Void
     @EnvironmentObject private var settings: TaskManagerSettings
 
     var body: some View {
@@ -250,6 +253,10 @@ private struct ProcessRow: View {
 
             Button("Search online") {
                 onSearchOnline(row)
+            }
+
+            Button("Copy info") {
+                onCopyInfo(row)
             }
 
             Button("Properties") {
