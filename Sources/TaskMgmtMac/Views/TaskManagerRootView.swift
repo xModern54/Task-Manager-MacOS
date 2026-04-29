@@ -13,6 +13,7 @@ struct TaskManagerRootView: View {
                     selection: $viewModel.selectedSection,
                     isExpanded: viewModel.isSidebarExpanded
                 )
+                .layoutPriority(1)
 
                 Divider()
                     .overlay(WindowsTaskManagerTheme.separator)
@@ -40,6 +41,8 @@ struct TaskManagerRootView: View {
                     )
                 case .startupApps:
                     StartupAppsPage()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .layoutPriority(0)
                 case .settings:
                     SettingsPage()
                 }

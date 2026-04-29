@@ -7,6 +7,8 @@ struct StartupAppsPage: View {
 
             StartupAppsTable()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .background(WindowsTaskManagerTheme.content)
     }
 }
@@ -21,9 +23,7 @@ private struct StartupAppsCommandBar: View {
             Spacer()
 
             StartupCommandButton(icon: "checkmark", title: "Enable", isEnabled: false)
-            VerticalSeparator()
             StartupCommandButton(icon: "nosign", title: "Disable", isEnabled: false)
-            VerticalSeparator()
             StartupCommandButton(icon: "info.rectangle", title: "Properties", isEnabled: false)
 
             Image(systemName: "ellipsis")
@@ -56,7 +56,7 @@ private struct StartupCommandButton: View {
                     .taskManagerFont(13)
             }
             .frame(height: 50)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 10)
             .foregroundStyle(isEnabled ? WindowsTaskManagerTheme.textPrimary : WindowsTaskManagerTheme.textMuted)
         }
         .buttonStyle(.plain)
@@ -92,13 +92,15 @@ private struct StartupAppsTable: View {
 
 private struct StartupAppsTableHeader: View {
     var body: some View {
-        HStack(spacing: 0) {
-            StartupHeaderCell(title: "Name", width: 238, isSorted: true)
-            StartupHeaderCell(title: "Publisher", width: 152)
-            StartupHeaderCell(title: "Status", width: 116)
-            StartupHeaderCell(title: "Startup impact", width: 132)
+        GeometryReader { geometry in
+            let width = geometry.size.width
 
-            Spacer(minLength: 0)
+            HStack(spacing: 0) {
+                StartupHeaderCell(title: "Name", width: width * 0.38, isSorted: true)
+                StartupHeaderCell(title: "Publisher", width: width * 0.24)
+                StartupHeaderCell(title: "Status", width: width * 0.18)
+                StartupHeaderCell(title: "Startup impact", width: width * 0.20, showsSeparator: false)
+            }
         }
         .frame(height: 58)
         .background(WindowsTaskManagerTheme.table)
@@ -114,6 +116,7 @@ private struct StartupHeaderCell: View {
     let title: String
     let width: CGFloat
     var isSorted = false
+    var showsSeparator = true
 
     var body: some View {
         HStack(spacing: 6) {
@@ -127,21 +130,15 @@ private struct StartupHeaderCell: View {
                     .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
             }
         }
-        .frame(width: width, height: 58, alignment: .leading)
         .padding(.leading, 16)
+        .frame(width: width, height: 58, alignment: .leading)
+        .clipped()
         .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(WindowsTaskManagerTheme.separator)
-                .frame(width: 1, height: 36)
+            if showsSeparator {
+                Rectangle()
+                    .fill(WindowsTaskManagerTheme.separator)
+                    .frame(width: 1, height: 36)
+            }
         }
-    }
-}
-
-private struct VerticalSeparator: View {
-    var body: some View {
-        Rectangle()
-            .fill(WindowsTaskManagerTheme.separator)
-            .frame(width: 1, height: 30)
-            .padding(.horizontal, 4)
     }
 }
