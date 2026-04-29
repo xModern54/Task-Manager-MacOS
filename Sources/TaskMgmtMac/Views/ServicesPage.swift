@@ -1,3 +1,4 @@
+@preconcurrency import AppKit
 import SwiftUI
 
 struct ServicesPage: View {
@@ -27,6 +28,9 @@ struct ServicesPage: View {
                             guard let pid = service.pid else { return }
                             selectedServiceID = service.id
                             viewModel.focusProcess(Int(pid))
+                        },
+                        onCopyInfo: { service in
+                            copyInfo(for: service)
                         }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -69,6 +73,57 @@ struct ServicesPage: View {
 
         isLoading = false
     }
+
+    private func copyInfo(for service: LaunchServiceItem) {
+        selectedServiceID = service.id
+
+        let text = LaunchServiceClipboardInfoBuilder.text(
+            for: service,
+            processRow: processRow(for: service)
+        )
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func processRow(for service: LaunchServiceItem) -> ProcessTableRow? {
+        guard let pid = service.pid else {
+            return nil
+        }
+
+        let processID = Int(pid)
+        let metric = viewModel.snapshot.processes.first { $0.pid == processID } ?? fallbackProcessMetric(
+            for: service,
+            pid: processID
+        )
+
+        return ProcessTableRow(
+            id: "process-\(processID)",
+            kind: .process,
+            metric: metric,
+            children: [],
+            isExpanded: false
+        )
+    }
+
+    private func fallbackProcessMetric(for service: LaunchServiceItem, pid: Int) -> ProcessMetric {
+        let processName = service.executablePath.map { URL(fileURLWithPath: $0).lastPathComponent }
+            .flatMap { $0.isEmpty ? nil : $0 }
+            ?? service.label
+
+        return ProcessMetric(
+            name: processName,
+            iconSystemName: "terminal",
+            executablePath: service.executablePath,
+            group: .backgroundProcesses,
+            cpu: 0,
+            memoryMB: 0,
+            diskMBs: 0,
+            networkMbps: 0,
+            powerUsage: .veryLow,
+            gpu: 0,
+            pid: pid
+        )
+    }
 }
 
 private struct ServicesCommandBar: View {
@@ -109,6 +164,7 @@ private struct ServicesTable: View {
     let selectionColor: Color
     let onSelect: (LaunchServiceItem) -> Void
     let onOpenProcess: (LaunchServiceItem) -> Void
+    let onCopyInfo: (LaunchServiceItem) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -132,6 +188,11 @@ private struct ServicesTable: View {
                             }
                             .onTapGesture(count: 2) {
                                 onOpenProcess(service)
+                            }
+                            .contextMenu {
+                                Button("Copy info") {
+                                    onCopyInfo(service)
+                                }
                             }
                         }
                     }
