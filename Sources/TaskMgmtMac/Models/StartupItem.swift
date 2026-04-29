@@ -8,6 +8,7 @@ struct StartupItem: Identifiable, Hashable, Sendable {
     let impact: StartupImpact
     let source: StartupItemSource
     let path: String?
+    let detail: String?
     let isHidden: Bool
 }
 
@@ -25,5 +26,8 @@ enum StartupImpact: String, Hashable, Sendable {
 }
 
 enum StartupItemSource: String, Hashable, Sendable {
+    case backgroundItem = "Background item"
+    case launchAgent = "Launch agent"
+    case launchDaemon = "Launch daemon"
     case loginItem = "Login item"
 }

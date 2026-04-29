@@ -21,7 +21,7 @@ struct StartupAppsPage: View {
 
     private func loadStartupItems() async {
         isLoading = true
-        startupItems = await SystemEventsLoginItemProvider().startupItems()
+        startupItems = await CompositeStartupItemProvider().startupItems()
         isLoading = false
     }
 }
@@ -109,7 +109,7 @@ private struct StartupAppsLoadingView: View {
             ProgressView()
                 .controlSize(.small)
 
-            Text("Loading login items")
+            Text("Loading startup items")
                 .taskManagerFont(13)
                 .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
         }
@@ -125,10 +125,10 @@ private struct StartupAppsEmptyView: View {
                 .taskManagerFont(28)
                 .foregroundStyle(WindowsTaskManagerTheme.textMuted)
 
-            Text("No login items found")
+            Text("No startup items found")
                 .taskManagerFont(15, weight: .semibold)
 
-            Text("Launch agents and daemons will be added after the login items provider.")
+            Text("Login items, launch agents, daemons, and background activity items will appear here.")
                 .taskManagerFont(13)
                 .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -185,7 +185,7 @@ private struct StartupNameCell: View {
                     .foregroundStyle(WindowsTaskManagerTheme.textPrimary)
                     .lineLimit(1)
 
-                Text(item.path ?? item.source.rawValue)
+                Text(item.detail ?? item.path ?? item.source.rawValue)
                     .taskManagerFont(11)
                     .foregroundStyle(WindowsTaskManagerTheme.textMuted)
                     .lineLimit(1)

@@ -71,6 +71,7 @@ private func parseLoginItemLine(_ line: String) -> StartupItem? {
         impact: .notMeasured,
         source: .loginItem,
         path: path,
+        detail: itemDetail(path: path),
         isHidden: hidden
     )
 }
@@ -92,6 +93,11 @@ private func publisher(for path: String?) -> String {
     }
 
     return "Unknown"
+}
+
+private func itemDetail(path: String?) -> String {
+    guard let path else { return StartupItemSource.loginItem.rawValue }
+    return path
 }
 
 private struct ConsoleUser {
