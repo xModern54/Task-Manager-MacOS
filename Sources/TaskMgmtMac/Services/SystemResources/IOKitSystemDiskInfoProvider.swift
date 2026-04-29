@@ -54,11 +54,11 @@ actor IOKitSystemDiskInfoProvider: SystemDiskInfoProviding {
             return DiskLiveMetrics.empty
         }
 
-        let elapsedSeconds = max(Double(current.timestampNanoseconds - previousStats.timestampNanoseconds) / 1_000_000_000, 0)
-        guard elapsedSeconds > 0 else {
+        guard current.timestampNanoseconds > previousStats.timestampNanoseconds else {
             return DiskLiveMetrics.empty
         }
 
+        let elapsedSeconds = Double(current.timestampNanoseconds - previousStats.timestampNanoseconds) / 1_000_000_000
         let readBytes = delta(current.readBytes, previousStats.readBytes)
         let writeBytes = delta(current.writeBytes, previousStats.writeBytes)
         let operations = delta(current.totalOperations, previousStats.totalOperations)
@@ -212,6 +212,11 @@ actor IOKitSystemDiskInfoProvider: SystemDiskInfoProviding {
     private func delta(_ current: UInt64, _ previous: UInt64) -> UInt64 {
         current >= previous ? current - previous : 0
     }
+
+    fileprivate static func sumClamped(_ lhs: UInt64, _ rhs: UInt64) -> UInt64 {
+        let (sum, didOverflow) = lhs.addingReportingOverflow(rhs)
+        return didOverflow ? UInt64.max : sum
+    }
 }
 
 private struct DiskSample: Sendable {
@@ -230,11 +235,11 @@ private struct BlockStorageStats: Sendable {
     let writeTimeNanoseconds: UInt64
 
     var totalOperations: UInt64 {
-        readOperations + writeOperations
+        IOKitSystemDiskInfoProvider.sumClamped(readOperations, writeOperations)
     }
 
     var totalTimeNanoseconds: UInt64 {
-        readTimeNanoseconds + writeTimeNanoseconds
+        IOKitSystemDiskInfoProvider.sumClamped(readTimeNanoseconds, writeTimeNanoseconds)
     }
 }
 
