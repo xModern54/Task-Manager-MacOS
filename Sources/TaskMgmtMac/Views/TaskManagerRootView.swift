@@ -44,7 +44,7 @@ struct TaskManagerRootView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .layoutPriority(0)
                 case .services:
-                    ServicesPage()
+                    ServicesPage(viewModel: viewModel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .layoutPriority(0)
                 case .settings:

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ServicesPage: View {
+    @ObservedObject var viewModel: TaskManagerViewModel
     @EnvironmentObject private var settings: TaskManagerSettings
     @State private var services: [LaunchServiceItem] = []
     @State private var selectedServiceID: LaunchServiceItem.ID?
@@ -21,6 +22,11 @@ struct ServicesPage: View {
                         selectionColor: settings.effectiveAccentColor,
                         onSelect: { service in
                             selectedServiceID = service.id
+                        },
+                        onOpenProcess: { service in
+                            guard let pid = service.pid else { return }
+                            selectedServiceID = service.id
+                            viewModel.focusProcess(Int(pid))
                         }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -102,6 +108,7 @@ private struct ServicesTable: View {
     let selectedServiceID: LaunchServiceItem.ID?
     let selectionColor: Color
     let onSelect: (LaunchServiceItem) -> Void
+    let onOpenProcess: (LaunchServiceItem) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -122,6 +129,9 @@ private struct ServicesTable: View {
                             )
                             .onTapGesture {
                                 onSelect(service)
+                            }
+                            .onTapGesture(count: 2) {
+                                onOpenProcess(service)
                             }
                         }
                     }
