@@ -729,8 +729,6 @@ private extension PerformanceDevice {
                 PerformanceStat(label: stat.label, value: powerText)
             case "Activity":
                 PerformanceStat(label: stat.label, value: activityText)
-            case "Utilization":
-                PerformanceStat(label: stat.label, value: "Not exposed by macOS")
             case "Cores":
                 PerformanceStat(label: stat.label, value: snapshot.coreCount.map(String.init) ?? "--")
             case "Architecture":
@@ -741,8 +739,6 @@ private extension PerformanceDevice {
                 PerformanceStat(label: stat.label, value: snapshot.boardType)
             case "Core ML":
                 PerformanceStat(label: stat.label, value: snapshot.computeDeviceState)
-            case "Precision":
-                PerformanceStat(label: stat.label, value: snapshot.precisionSupport)
             case "Registry class":
                 PerformanceStat(label: stat.label, value: snapshot.registryClassName)
             default:

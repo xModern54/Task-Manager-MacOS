@@ -163,13 +163,11 @@ struct PerformanceDevice: Identifiable, Hashable {
             stats: [
                 PerformanceStat(label: "ANE power", value: "--"),
                 PerformanceStat(label: "Activity", value: "--"),
-                PerformanceStat(label: "Utilization", value: "Not exposed"),
                 PerformanceStat(label: "Cores", value: "--"),
                 PerformanceStat(label: "Architecture", value: "--"),
                 PerformanceStat(label: "Version", value: "--"),
                 PerformanceStat(label: "Board type", value: "--"),
                 PerformanceStat(label: "Core ML", value: "--"),
-                PerformanceStat(label: "Precision", value: "Core ML managed"),
                 PerformanceStat(label: "Registry class", value: "--")
             ]
         )
