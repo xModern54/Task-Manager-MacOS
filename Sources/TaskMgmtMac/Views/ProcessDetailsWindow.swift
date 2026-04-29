@@ -9,7 +9,7 @@ final class ProcessDetailsWindowPresenter {
 
     private init() {}
 
-    func open(row: ProcessTableRow) {
+    func open(row: ProcessTableRow, settings: TaskManagerSettings) {
         let windowKey = row.isGroup ? row.id : "process-\(row.metric.pid)"
 
         if let window = windows[windowKey] {
@@ -27,7 +27,10 @@ final class ProcessDetailsWindowPresenter {
         window.title = "\(row.metric.name) details"
         window.center()
         window.isReleasedWhenClosed = false
-        window.contentView = NSHostingView(rootView: ProcessDetailsWindow(row: row))
+        window.contentView = NSHostingView(
+            rootView: ProcessDetailsWindow(row: row)
+                .environmentObject(settings)
+        )
 
         windows[windowKey] = window
         window.makeKeyAndOrderFront(nil)
@@ -215,46 +218,223 @@ private struct ProcessDetailsMainTab: View {
 
 private struct ProcessDetailsStatsTab: View {
     let row: ProcessTableRow
+    @EnvironmentObject private var settings: TaskManagerSettings
+    @State private var snapshot: ProcessStatsSnapshot?
+    @State private var previousSnapshot: ProcessStatsSnapshot?
+    @State private var isLoading = true
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                DetailSection(title: "Resource usage") {
-                    DetailRow(label: "CPU", value: percent(row.metric.cpu))
-                    DetailRow(label: "Memory", value: memory(row.metric.memoryMB))
-                    DetailRow(label: "Disk", value: disk(row.metric.diskMBs))
-                    DetailRow(label: "Network", value: network(row.metric.networkMbps))
-                    DetailRow(label: "GPU", value: percent(row.metric.gpu))
-                    DetailRow(label: "Power usage", value: row.metric.powerUsage.rawValue)
-                }
+        VStack(spacing: 0) {
+            statsSummary
 
-                DetailSection(title: "Kernel activity") {
-                    DetailRow(label: "Context switches", value: "Provider pending")
-                    DetailRow(label: "Mach syscalls", value: "Provider pending")
-                    DetailRow(label: "Unix syscalls", value: "Provider pending")
-                    DetailRow(label: "Page faults", value: "Provider pending")
-                    DetailRow(label: "Mach messages", value: "Provider pending")
+            Divider()
+
+            if isLoading {
+                loadingView
+            } else if let snapshot {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            ProcessStatTile(title: "CPU", value: percent(cpuPercent), subtitle: "Current sample")
+                            ProcessStatTile(title: "Memory", value: byteCount(snapshot.residentBytes), subtitle: "Resident memory")
+                            ProcessStatTile(title: "Threads", value: "\(snapshot.threadCount)", subtitle: "\(snapshot.runningThreadCount) running")
+                            ProcessStatTile(title: "Priority", value: "\(snapshot.priority)", subtitle: "Nice \(snapshot.niceValue)")
+                        }
+
+                        DetailSection(title: "CPU and memory") {
+                            DetailRow(label: "CPU", value: percent(cpuPercent))
+                            DetailRow(label: "User CPU time", value: duration(snapshot.userTimeNanoseconds))
+                            DetailRow(label: "System CPU time", value: duration(snapshot.systemTimeNanoseconds))
+                            DetailRow(label: "Resident memory", value: byteCount(snapshot.residentBytes))
+                            DetailRow(label: "Virtual memory", value: byteCount(snapshot.virtualBytes))
+                        }
+
+                        DetailSection(title: "Scheduler") {
+                            DetailRow(label: "Threads", value: "\(snapshot.threadCount)")
+                            DetailRow(label: "Running threads", value: "\(snapshot.runningThreadCount)")
+                            DetailRow(label: "Priority", value: "\(snapshot.priority)")
+                            DetailRow(label: "Nice value", value: "\(snapshot.niceValue)")
+                            DetailRow(label: "Policy", value: "\(snapshot.policy)")
+                            DetailRow(label: "Open files", value: "\(snapshot.openFileCount)")
+                        }
+
+                        DetailSection(title: "Kernel activity") {
+                            DetailRow(label: "Context switches", value: totalAndRate(snapshot.contextSwitches, rate: deltaRate(\.contextSwitches)))
+                            DetailRow(label: "Mach syscalls", value: totalAndRate(snapshot.machSyscalls, rate: deltaRate(\.machSyscalls)))
+                            DetailRow(label: "Unix syscalls", value: totalAndRate(snapshot.unixSyscalls, rate: deltaRate(\.unixSyscalls)))
+                            DetailRow(label: "Mach messages sent", value: totalAndRate(snapshot.machMessagesSent, rate: deltaRate(\.machMessagesSent)))
+                            DetailRow(label: "Mach messages received", value: totalAndRate(snapshot.machMessagesReceived, rate: deltaRate(\.machMessagesReceived)))
+                        }
+
+                        DetailSection(title: "Memory faults") {
+                            DetailRow(label: "Page faults", value: totalAndRate(snapshot.pageFaults, rate: deltaRate(\.pageFaults)))
+                            DetailRow(label: "Page-ins", value: totalAndRate(snapshot.pageIns, rate: deltaRate(\.pageIns)))
+                            DetailRow(label: "COW faults", value: totalAndRate(snapshot.copyOnWriteFaults, rate: deltaRate(\.copyOnWriteFaults)))
+                        }
+                    }
+                    .padding(24)
                 }
+            } else {
+                emptyView
             }
-            .padding(24)
         }
         .background(WindowsTaskManagerTheme.table)
+        .task(id: "\(row.metric.pid)-\(settings.refreshInterval.rawValue)") {
+            await refreshLoop()
+        }
+    }
+
+    private var statsSummary: some View {
+        HStack(spacing: 14) {
+            Text("Process stats")
+                .taskManagerFont(14, weight: .semibold)
+
+            Spacer()
+
+            Text(summaryText)
+                .taskManagerFont(12)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 24)
+        .frame(height: 44)
+        .background(WindowsTaskManagerTheme.table)
+    }
+
+    private var summaryText: String {
+        if isLoading {
+            return "Loading counters..."
+        }
+
+        guard let snapshot else {
+            return "Unavailable"
+        }
+
+        return "\(percent(cpuPercent)) CPU · \(byteCount(snapshot.residentBytes)) resident · every \(settings.refreshInterval.title)"
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.small)
+
+            Text("Loading process counters")
+                .taskManagerFont(13)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 8) {
+            Text("Stats unavailable")
+                .taskManagerFont(15, weight: .semibold)
+
+            Text("macOS did not return readable process counters for this process.")
+                .taskManagerFont(13)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
+    }
+
+    private var cpuPercent: Double {
+        guard let previousSnapshot, let snapshot else { return row.metric.cpu }
+        guard snapshot.cpuTimeNanoseconds >= previousSnapshot.cpuTimeNanoseconds,
+              snapshot.timestampNanoseconds > previousSnapshot.timestampNanoseconds else {
+            return 0
+        }
+
+        let elapsed = snapshot.timestampNanoseconds - previousSnapshot.timestampNanoseconds
+        let cpuDelta = snapshot.cpuTimeNanoseconds - previousSnapshot.cpuTimeNanoseconds
+        guard elapsed > 0 else { return 0 }
+
+        let rawPercent = Double(cpuDelta) / Double(elapsed) * 100
+        let normalizedPercent = rawPercent / Double(max(snapshot.activeProcessorCount, 1))
+        return min(max(normalizedPercent, 0), 100)
+    }
+
+    private func refreshLoop() async {
+        isLoading = true
+        snapshot = nil
+        previousSnapshot = nil
+
+        while !Task.isCancelled {
+            await loadStats()
+
+            do {
+                try await Task.sleep(for: settings.refreshInterval.duration)
+            } catch {
+                break
+            }
+        }
+    }
+
+    private func loadStats() async {
+        let pid = row.metric.pid
+        let nextSnapshot = await Task.detached(priority: .utility) {
+            LibprocProcessStatsProvider().snapshot(for: pid)
+        }.value
+
+        guard !Task.isCancelled else { return }
+
+        if let snapshot {
+            previousSnapshot = snapshot
+        }
+        snapshot = nextSnapshot
+        isLoading = false
+    }
+
+    private func deltaRate(_ keyPath: KeyPath<ProcessStatsSnapshot, Int>) -> Double? {
+        guard let previousSnapshot, let snapshot else { return nil }
+        guard snapshot.timestampNanoseconds > previousSnapshot.timestampNanoseconds else { return nil }
+
+        let current = snapshot[keyPath: keyPath]
+        let previous = previousSnapshot[keyPath: keyPath]
+        let delta = max(current - previous, 0)
+        let elapsedSeconds = Double(snapshot.timestampNanoseconds - previousSnapshot.timestampNanoseconds) / 1_000_000_000
+        guard elapsedSeconds > 0 else { return nil }
+
+        return Double(delta) / elapsedSeconds
+    }
+
+    private func totalAndRate(_ total: Int, rate: Double?) -> String {
+        guard let rate else { return "\(total)" }
+        return "\(total) · \(rateString(rate))/s"
+    }
+
+    private func rateString(_ value: Double) -> String {
+        if value >= 100 {
+            return String(format: "%.0f", value)
+        }
+
+        if value >= 10 {
+            return String(format: "%.1f", value)
+        }
+
+        return String(format: "%.2f", value)
     }
 
     private func percent(_ value: Double) -> String {
         value == 0 ? "0%" : String(format: "%.1f%%", value)
     }
 
-    private func memory(_ value: Double) -> String {
-        String(format: "%.1f MB", value)
+    private func byteCount(_ bytes: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(clamping: bytes), countStyle: .memory)
     }
 
-    private func disk(_ value: Double) -> String {
-        value == 0 ? "0 MB/s" : String(format: "%.1f MB/s", value)
-    }
+    private func duration(_ nanoseconds: UInt64) -> String {
+        let seconds = Double(nanoseconds) / 1_000_000_000
+        if seconds >= 3_600 {
+            return String(format: "%.1f h", seconds / 3_600)
+        }
 
-    private func network(_ value: Double) -> String {
-        value == 0 ? "0 Mbps" : String(format: "%.1f Mbps", value)
+        if seconds >= 60 {
+            return String(format: "%.1f min", seconds / 60)
+        }
+
+        return String(format: "%.2f s", seconds)
     }
 }
 

@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ProcessesPage: View {
     @ObservedObject var viewModel: TaskManagerViewModel
+    @EnvironmentObject private var settings: TaskManagerSettings
     @State private var isTableMounted = false
     @State private var isRunNewTaskPresented = false
     @State private var isEndTaskConfirmationPresented = false
@@ -93,7 +94,7 @@ struct ProcessesPage: View {
 
     private func openDetails(for row: ProcessTableRow) {
         viewModel.selectProcessRow(row)
-        ProcessDetailsWindowPresenter.shared.open(row: row)
+        ProcessDetailsWindowPresenter.shared.open(row: row, settings: settings)
     }
 
     private func revealFile(for row: ProcessTableRow) {
