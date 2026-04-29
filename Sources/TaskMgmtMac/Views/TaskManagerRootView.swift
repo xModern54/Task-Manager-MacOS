@@ -38,6 +38,8 @@ struct TaskManagerRootView: View {
                         cpuSensorSnapshot: viewModel.cpuSensorSnapshot,
                         selectedDeviceID: $viewModel.selectedPerformanceDeviceID
                     )
+                case .startupApps:
+                    StartupAppsPage()
                 case .settings:
                     SettingsPage()
                 }

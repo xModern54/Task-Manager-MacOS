@@ -587,6 +587,7 @@ enum SortDirection: Hashable, Sendable {
 enum TaskManagerSection: String, CaseIterable, Identifiable {
     case processes = "Processes"
     case devices = "Devices"
+    case startupApps = "Startup apps"
     case settings = "Settings"
 
     var id: Self { self }
@@ -597,6 +598,8 @@ enum TaskManagerSection: String, CaseIterable, Identifiable {
             "square.grid.2x2"
         case .devices:
             "waveform.path.ecg.rectangle"
+        case .startupApps:
+            "speedometer"
         case .settings:
             "gearshape"
         }
