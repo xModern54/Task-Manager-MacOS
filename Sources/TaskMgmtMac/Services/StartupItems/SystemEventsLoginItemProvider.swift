@@ -13,9 +13,10 @@ private func readLoginItems() -> [StartupItem] {
     let result = runLoginItemsScript()
     guard result.status == 0 else { return [] }
 
+    let runtimeResolver = StartupRuntimeResolver()
     return result.output
         .split(separator: "\n", omittingEmptySubsequences: true)
-        .compactMap { parseLoginItemLine(String($0)) }
+        .compactMap { parseLoginItemLine(String($0), runtimeResolver: runtimeResolver) }
         .sorted { lhs, rhs in
             lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
         }
@@ -54,7 +55,7 @@ private func runLoginItemsScript() -> (status: Int32, output: String) {
     }
 }
 
-private func parseLoginItemLine(_ line: String) -> StartupItem? {
+private func parseLoginItemLine(_ line: String, runtimeResolver: StartupRuntimeResolver) -> StartupItem? {
     let fields = line.components(separatedBy: "\t")
     guard fields.count >= 4 else { return nil }
 
@@ -62,13 +63,19 @@ private func parseLoginItemLine(_ line: String) -> StartupItem? {
     let path = fields[1].isEmpty ? nil : fields[1]
     let hidden = fields[2] == "true"
     let publisher = publisher(for: path)
+    let runtime = runtimeResolver.runtime(for: StartupRuntimeRecord(
+        status: .enabled,
+        bundleIdentifier: Bundle(path: path ?? "")?.bundleIdentifier,
+        path: path,
+        controlTargets: []
+    ))
 
     return StartupItem(
         id: path ?? "\(StartupItemSource.loginItem.rawValue)-\(name)",
         name: name,
         publisher: publisher,
         status: .enabled,
-        impact: .notMeasured,
+        runtime: runtime,
         source: .loginItem,
         path: path,
         detail: itemDetail(path: path),
@@ -76,6 +83,7 @@ private func parseLoginItemLine(_ line: String) -> StartupItem? {
         controlTargets: [],
         properties: [
             StartupItemProperty(id: "name", name: "Name", value: name),
+            StartupItemProperty(id: "runtime", name: "Runtime", value: runtime.displayText),
             StartupItemProperty(id: "path", name: "Path", value: path ?? "Unknown"),
             StartupItemProperty(id: "hidden", name: "Hidden", value: hidden ? "Yes" : "No"),
             StartupItemProperty(id: "source", name: "Source", value: StartupItemSource.loginItem.rawValue)

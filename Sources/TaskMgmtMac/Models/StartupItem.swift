@@ -5,7 +5,7 @@ struct StartupItem: Identifiable, Hashable, Sendable {
     let name: String
     let publisher: String
     let status: StartupItemStatus
-    let impact: StartupImpact
+    let runtime: StartupRuntimeSnapshot
     let source: StartupItemSource
     let path: String?
     let detail: String?
@@ -33,17 +33,32 @@ struct StartupItemProperty: Identifiable, Hashable, Sendable {
     let value: String
 }
 
-enum StartupItemStatus: String, Hashable, Sendable {
-    case enabled = "Enabled"
+struct StartupRuntimeSnapshot: Hashable, Sendable {
+    let state: StartupRuntimeState
+    let pid: Int32?
+    let detail: String?
+
+    static let unknown = StartupRuntimeSnapshot(state: .unknown, pid: nil, detail: nil)
+
+    var displayText: String {
+        guard let pid else { return state.rawValue }
+        return "\(state.rawValue) · PID \(pid)"
+    }
+}
+
+enum StartupRuntimeState: String, Hashable, Sendable {
+    case running = "Running"
+    case appRunning = "App running"
+    case idle = "Idle"
+    case notLoaded = "Not loaded"
     case disabled = "Disabled"
     case unknown = "Unknown"
 }
 
-enum StartupImpact: String, Hashable, Sendable {
-    case notMeasured = "Not measured"
-    case low = "Low"
-    case medium = "Medium"
-    case high = "High"
+enum StartupItemStatus: String, Hashable, Sendable {
+    case enabled = "Enabled"
+    case disabled = "Disabled"
+    case unknown = "Unknown"
 }
 
 enum StartupItemSource: String, Hashable, Sendable {

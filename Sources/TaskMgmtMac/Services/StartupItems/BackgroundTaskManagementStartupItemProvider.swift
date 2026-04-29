@@ -194,6 +194,7 @@ private func makeStartupItems(from records: [BTMRecord]) -> [StartupItem] {
         record.parentIdentifier ?? ""
     }
     let parentIdentifiers = displayParentIdentifiers(in: filteredRecords)
+    let runtimeResolver = StartupRuntimeResolver()
 
     let displayRecords = filteredRecords.filter { record in
         guard let identifier = record.identifier else { return false }
@@ -215,7 +216,8 @@ private func makeStartupItems(from records: [BTMRecord]) -> [StartupItem] {
             makeStartupItem(
                 for: record,
                 children: childRecordsByParent[record.identifier ?? ""] ?? [],
-                recordsByIdentifier: recordsByIdentifier
+                recordsByIdentifier: recordsByIdentifier,
+                runtimeResolver: runtimeResolver
             )
         }
         .uniqueByID()
@@ -292,7 +294,8 @@ private func isConcreteBackgroundRecord(_ record: BTMRecord) -> Bool {
 private func makeStartupItem(
     for record: BTMRecord,
     children: [BTMRecord],
-    recordsByIdentifier: [String: BTMRecord]
+    recordsByIdentifier: [String: BTMRecord],
+    runtimeResolver: StartupRuntimeResolver
 ) -> StartupItem? {
     let groupRecords = ([record] + children).filter { isConcreteBackgroundRecord($0) }
     guard !groupRecords.isEmpty else { return nil }
@@ -304,19 +307,26 @@ private func makeStartupItem(
     let publisher = displayPublisher(for: record, children: children)
     let source = source(for: record)
     let targets = controlTargets(for: groupRecords)
+    let status = status(for: groupRecords)
+    let runtime = runtimeResolver.runtime(for: StartupRuntimeRecord(
+        status: status,
+        bundleIdentifier: record.bundleIdentifier,
+        path: path,
+        controlTargets: targets
+    ))
 
     return StartupItem(
         id: record.identifier ?? record.uuid ?? "\(StartupItemSource.backgroundItem.rawValue)-\(name)",
         name: name,
         publisher: publisher,
-        status: status(for: groupRecords),
-        impact: .notMeasured,
+        status: status,
+        runtime: runtime,
         source: source,
         path: path,
         detail: detailText(itemCount: itemCount, source: source, affectsAllUsers: affectsAllUsers, path: path),
         isHidden: false,
         controlTargets: targets,
-        properties: properties(for: record, children: children, targets: targets)
+        properties: properties(for: record, children: children, targets: targets, runtime: runtime)
     )
 }
 
@@ -502,13 +512,16 @@ private func absoluteExecutablePath(for record: BTMRecord) -> String? {
 private func properties(
     for record: BTMRecord,
     children: [BTMRecord],
-    targets: [StartupItemControlTarget]
+    targets: [StartupItemControlTarget],
+    runtime: StartupRuntimeSnapshot
 ) -> [StartupItemProperty] {
     var properties: [StartupItemProperty] = []
 
     appendProperty("name", "Name", displayName(for: record), to: &properties)
     appendProperty("publisher", "Publisher", displayPublisher(for: record, children: children), to: &properties)
     appendProperty("status", "Status", status(for: ([record] + children).filter { isConcreteBackgroundRecord($0) }).rawValue, to: &properties)
+    appendProperty("runtime", "Runtime", runtime.displayText, to: &properties)
+    appendProperty("runtimeDetail", "Runtime detail", runtime.detail, to: &properties)
     appendProperty("source", "Source", source(for: record).rawValue, to: &properties)
     appendProperty("uuid", "UUID", record.uuid, to: &properties)
     appendProperty("identifier", "Identifier", record.identifier, to: &properties)

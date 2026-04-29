@@ -251,7 +251,7 @@ private struct StartupItemRow: View {
                 StartupNameCell(item: item, width: width * 0.38)
                 StartupTextCell(text: item.publisher, width: width * 0.24)
                 StartupTextCell(text: statusText, width: width * 0.18)
-                StartupTextCell(text: item.impact.rawValue, width: width * 0.20, showsSeparator: false)
+                StartupTextCell(text: item.runtime.displayText, width: width * 0.20, showsSeparator: false)
             }
         }
         .frame(height: 46)
@@ -453,7 +453,7 @@ private struct StartupAppsTableHeader: View {
                 StartupHeaderCell(title: "Name", width: width * 0.38, isSorted: true)
                 StartupHeaderCell(title: "Publisher", width: width * 0.24)
                 StartupHeaderCell(title: "Status", width: width * 0.18)
-                StartupHeaderCell(title: "Startup impact", width: width * 0.20, showsSeparator: false)
+                StartupHeaderCell(title: "Runtime", width: width * 0.20, showsSeparator: false)
             }
         }
         .frame(height: 58)
