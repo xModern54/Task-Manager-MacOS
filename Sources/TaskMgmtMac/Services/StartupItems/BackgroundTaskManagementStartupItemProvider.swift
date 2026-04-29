@@ -302,6 +302,8 @@ private func makeStartupItem(
     let affectsAllUsers = groupRecords.contains { $0.uid == -2 || $0.type == "legacy daemon" }
     let path = displayPath(for: record, children: children)
     let publisher = displayPublisher(for: record, children: children)
+    let source = source(for: record)
+    let targets = controlTargets(for: groupRecords)
 
     return StartupItem(
         id: record.identifier ?? record.uuid ?? "\(StartupItemSource.backgroundItem.rawValue)-\(name)",
@@ -309,10 +311,12 @@ private func makeStartupItem(
         publisher: publisher,
         status: status(for: groupRecords),
         impact: .notMeasured,
-        source: source(for: record),
+        source: source,
         path: path,
-        detail: detailText(itemCount: itemCount, source: source(for: record), affectsAllUsers: affectsAllUsers, path: path),
-        isHidden: false
+        detail: detailText(itemCount: itemCount, source: source, affectsAllUsers: affectsAllUsers, path: path),
+        isHidden: false,
+        controlTargets: targets,
+        properties: properties(for: record, children: children, targets: targets)
     )
 }
 
@@ -405,6 +409,142 @@ private func source(for record: BTMRecord) -> StartupItemSource {
     default:
         return .backgroundItem
     }
+}
+
+private func controlTargets(for records: [BTMRecord]) -> [StartupItemControlTarget] {
+    var seenIDs: Set<String> = []
+    var targets: [StartupItemControlTarget] = []
+
+    for record in records {
+        guard isLaunchdControllable(record),
+              let label = launchdLabel(for: record) else {
+            continue
+        }
+
+        let domain = launchdDomain(for: record)
+        let plistPath = plistPath(for: record)
+        let executablePath = absoluteExecutablePath(for: record)
+        let target = StartupItemControlTarget(
+            label: label,
+            domain: domain,
+            plistPath: plistPath,
+            executablePath: executablePath
+        )
+
+        guard seenIDs.insert(target.id).inserted else { continue }
+        targets.append(target)
+    }
+
+    return targets
+}
+
+private func isLaunchdControllable(_ record: BTMRecord) -> Bool {
+    switch record.type {
+    case "legacy agent", "agent", "legacy daemon", "daemon", "login item":
+        return true
+    default:
+        return false
+    }
+}
+
+private func launchdLabel(for record: BTMRecord) -> String? {
+    if let plistPath = plistPath(for: record),
+       let label = plistLabel(at: plistPath) {
+        return label
+    }
+
+    guard let identifier = record.identifier else { return nil }
+
+    if let dotIndex = identifier.firstIndex(of: "."),
+       identifier[..<dotIndex].allSatisfy(\.isNumber) {
+        return String(identifier[identifier.index(after: dotIndex)...])
+    }
+
+    return identifier
+}
+
+private func plistLabel(at path: String) -> String? {
+    guard let dictionary = NSDictionary(contentsOfFile: path),
+          let label = dictionary["Label"] as? String,
+          !label.isEmpty else {
+        return nil
+    }
+
+    return label
+}
+
+private func launchdDomain(for record: BTMRecord) -> String {
+    if record.uid == -2 || record.type == "legacy daemon" || record.type == "daemon" {
+        return "system"
+    }
+
+    let uid = record.uid.flatMap { $0 >= 0 ? $0 : nil } ?? consoleUserUID() ?? Int(getuid())
+    return "gui/\(uid)"
+}
+
+private func plistPath(for record: BTMRecord) -> String? {
+    guard let path = filePath(from: record.url), path.hasSuffix(".plist") else {
+        return nil
+    }
+
+    return path
+}
+
+private func absoluteExecutablePath(for record: BTMRecord) -> String? {
+    guard let executablePath = record.executablePath,
+          executablePath.hasPrefix("/") else {
+        return nil
+    }
+
+    return executablePath
+}
+
+private func properties(
+    for record: BTMRecord,
+    children: [BTMRecord],
+    targets: [StartupItemControlTarget]
+) -> [StartupItemProperty] {
+    var properties: [StartupItemProperty] = []
+
+    appendProperty("name", "Name", displayName(for: record), to: &properties)
+    appendProperty("publisher", "Publisher", displayPublisher(for: record, children: children), to: &properties)
+    appendProperty("status", "Status", status(for: ([record] + children).filter { isConcreteBackgroundRecord($0) }).rawValue, to: &properties)
+    appendProperty("source", "Source", source(for: record).rawValue, to: &properties)
+    appendProperty("uuid", "UUID", record.uuid, to: &properties)
+    appendProperty("identifier", "Identifier", record.identifier, to: &properties)
+    appendProperty("parentIdentifier", "Parent identifier", record.parentIdentifier, to: &properties)
+    appendProperty("bundleIdentifier", "Bundle identifier", record.bundleIdentifier, to: &properties)
+    appendProperty("teamIdentifier", "Team identifier", record.teamIdentifier, to: &properties)
+    appendProperty("type", "BTM type", record.type, to: &properties)
+    appendProperty("flags", "BTM flags", record.flags.sorted().joined(separator: ", "), to: &properties)
+    appendProperty("disposition", "BTM disposition", record.disposition.sorted().joined(separator: ", "), to: &properties)
+    appendProperty("url", "URL", record.url, to: &properties)
+    appendProperty("executablePath", "Executable path", record.executablePath, to: &properties)
+
+    let childIdentifiers = children.compactMap(\.identifier).joined(separator: ", ")
+    appendProperty("children", "Child items", childIdentifiers, to: &properties)
+    appendProperty("embeddedItems", "Embedded items", record.embeddedItemIdentifiers.joined(separator: ", "), to: &properties)
+    appendProperty("associatedBundles", "Associated bundles", record.associatedBundleIdentifiers.joined(separator: ", "), to: &properties)
+
+    let targetText = targets.map(\.id).joined(separator: ", ")
+    appendProperty("launchdTargets", "Launchd targets", targetText, to: &properties)
+
+    for target in targets {
+        appendProperty("target-\(target.id)-plist", "Plist for \(target.label)", target.plistPath, to: &properties)
+        appendProperty("target-\(target.id)-executable", "Executable for \(target.label)", target.executablePath, to: &properties)
+    }
+
+    return properties
+}
+
+private func appendProperty(
+    _ id: String,
+    _ name: String,
+    _ value: String?,
+    to properties: inout [StartupItemProperty]
+) {
+    guard let value, !value.isEmpty else { return }
+    properties.append(StartupItemProperty(id: id, name: name, value: value))
 }
 
 private func concreteItemCount(for record: BTMRecord, recordsByIdentifier: [String: BTMRecord]) -> Int {

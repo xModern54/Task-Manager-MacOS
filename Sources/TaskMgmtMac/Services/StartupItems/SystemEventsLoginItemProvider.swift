@@ -72,7 +72,14 @@ private func parseLoginItemLine(_ line: String) -> StartupItem? {
         source: .loginItem,
         path: path,
         detail: itemDetail(path: path),
-        isHidden: hidden
+        isHidden: hidden,
+        controlTargets: [],
+        properties: [
+            StartupItemProperty(id: "name", name: "Name", value: name),
+            StartupItemProperty(id: "path", name: "Path", value: path ?? "Unknown"),
+            StartupItemProperty(id: "hidden", name: "Hidden", value: hidden ? "Yes" : "No"),
+            StartupItemProperty(id: "source", name: "Source", value: StartupItemSource.loginItem.rawValue)
+        ]
     )
 }
 

@@ -10,6 +10,27 @@ struct StartupItem: Identifiable, Hashable, Sendable {
     let path: String?
     let detail: String?
     let isHidden: Bool
+    let controlTargets: [StartupItemControlTarget]
+    let properties: [StartupItemProperty]
+
+    var isControllable: Bool {
+        !controlTargets.isEmpty
+    }
+}
+
+struct StartupItemControlTarget: Identifiable, Hashable, Sendable {
+    var id: String { "\(domain)/\(label)" }
+
+    let label: String
+    let domain: String
+    let plistPath: String?
+    let executablePath: String?
+}
+
+struct StartupItemProperty: Identifiable, Hashable, Sendable {
+    let id: String
+    let name: String
+    let value: String
 }
 
 enum StartupItemStatus: String, Hashable, Sendable {

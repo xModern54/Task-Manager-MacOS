@@ -4,12 +4,34 @@ import SwiftUI
 struct StartupAppsPage: View {
     @State private var startupItems: [StartupItem] = []
     @State private var isLoading = true
+    @State private var selectedItemID: StartupItem.ID?
+    @State private var propertiesItem: StartupItem?
+    @State private var isApplyingAction = false
+    @State private var actionErrorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
-            StartupAppsCommandBar()
+            StartupAppsCommandBar(
+                selectedItem: selectedItem,
+                isApplyingAction: isApplyingAction,
+                onSetEnabled: { enabled in
+                    Task {
+                        await setSelectedItemEnabled(enabled)
+                    }
+                },
+                onShowProperties: {
+                    propertiesItem = selectedItem
+                }
+            )
 
-            StartupAppsTable(items: startupItems, isLoading: isLoading)
+            StartupAppsTable(
+                items: startupItems,
+                isLoading: isLoading,
+                selectedItemID: selectedItemID,
+                onSelect: { item in
+                    selectedItemID = item.id
+                }
+            )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
@@ -17,16 +39,64 @@ struct StartupAppsPage: View {
         .task {
             await loadStartupItems()
         }
+        .sheet(item: $propertiesItem) { item in
+            StartupItemPropertiesSheet(item: item)
+        }
+        .alert("Startup action failed", isPresented: actionErrorBinding) {
+            Button("OK") {
+                actionErrorMessage = nil
+            }
+        } message: {
+            Text(actionErrorMessage ?? "The selected startup item could not be changed.")
+        }
     }
 
     private func loadStartupItems() async {
         isLoading = true
         startupItems = await CompositeStartupItemProvider().startupItems()
+        if let selectedItemID, !startupItems.contains(where: { $0.id == selectedItemID }) {
+            self.selectedItemID = nil
+        }
         isLoading = false
+    }
+
+    private var selectedItem: StartupItem? {
+        guard let selectedItemID else { return nil }
+        return startupItems.first { $0.id == selectedItemID }
+    }
+
+    private var actionErrorBinding: Binding<Bool> {
+        Binding(
+            get: { actionErrorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    actionErrorMessage = nil
+                }
+            }
+        )
+    }
+
+    private func setSelectedItemEnabled(_ enabled: Bool) async {
+        guard let selectedItem, selectedItem.isControllable else { return }
+
+        isApplyingAction = true
+        let result = await StartupItemLaunchController().setEnabled(enabled, item: selectedItem)
+        isApplyingAction = false
+
+        if result.success {
+            await loadStartupItems()
+        } else {
+            actionErrorMessage = result.message ?? "launchctl returned an error."
+        }
     }
 }
 
 private struct StartupAppsCommandBar: View {
+    let selectedItem: StartupItem?
+    let isApplyingAction: Bool
+    let onSetEnabled: (Bool) -> Void
+    let onShowProperties: () -> Void
+
     var body: some View {
         HStack(spacing: 0) {
             Text("Startup apps")
@@ -35,9 +105,15 @@ private struct StartupAppsCommandBar: View {
 
             Spacer()
 
-            StartupCommandButton(icon: "checkmark", title: "Enable", isEnabled: false)
-            StartupCommandButton(icon: "nosign", title: "Disable", isEnabled: false)
-            StartupCommandButton(icon: "info.rectangle", title: "Properties", isEnabled: false)
+            StartupCommandButton(icon: "checkmark", title: "Enable", isEnabled: canEnable) {
+                onSetEnabled(true)
+            }
+            StartupCommandButton(icon: "nosign", title: "Disable", isEnabled: canDisable) {
+                onSetEnabled(false)
+            }
+            StartupCommandButton(icon: "info.rectangle", title: "Properties", isEnabled: selectedItem != nil) {
+                onShowProperties()
+            }
 
             Image(systemName: "ellipsis")
                 .taskManagerFont(18, weight: .bold)
@@ -52,15 +128,26 @@ private struct StartupAppsCommandBar: View {
                 .frame(height: 1)
         }
     }
+
+    private var canEnable: Bool {
+        guard let selectedItem, selectedItem.isControllable, !isApplyingAction else { return false }
+        return selectedItem.status != .enabled
+    }
+
+    private var canDisable: Bool {
+        guard let selectedItem, selectedItem.isControllable, !isApplyingAction else { return false }
+        return selectedItem.status != .disabled
+    }
 }
 
 private struct StartupCommandButton: View {
     let icon: String
     let title: String
     let isEnabled: Bool
+    let action: () -> Void
 
     var body: some View {
-        Button {} label: {
+        Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: icon)
                     .taskManagerFont(15)
@@ -80,6 +167,8 @@ private struct StartupCommandButton: View {
 private struct StartupAppsTable: View {
     let items: [StartupItem]
     let isLoading: Bool
+    let selectedItemID: StartupItem.ID?
+    let onSelect: (StartupItem) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -93,7 +182,10 @@ private struct StartupAppsTable: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(items) { item in
-                            StartupItemRow(item: item)
+                            StartupItemRow(item: item, isSelected: item.id == selectedItemID)
+                                .onTapGesture {
+                                    onSelect(item)
+                                }
                         }
                     }
                 }
@@ -141,6 +233,7 @@ private struct StartupAppsEmptyView: View {
 
 private struct StartupItemRow: View {
     let item: StartupItem
+    let isSelected: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -154,7 +247,8 @@ private struct StartupItemRow: View {
             }
         }
         .frame(height: 46)
-        .background(WindowsTaskManagerTheme.table)
+        .background(rowBackground)
+        .contentShape(Rectangle())
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(WindowsTaskManagerTheme.separator)
@@ -168,6 +262,10 @@ private struct StartupItemRow: View {
         }
 
         return item.status.rawValue
+    }
+
+    private var rowBackground: some ShapeStyle {
+        isSelected ? WindowsTaskManagerTheme.accent.opacity(0.18) : WindowsTaskManagerTheme.table
     }
 }
 
@@ -229,6 +327,7 @@ private struct StartupTextCell: View {
 
 private struct StartupItemIcon: View {
     let path: String?
+    var size: CGFloat = 20
 
     var body: some View {
         Group {
@@ -244,8 +343,96 @@ private struct StartupItemIcon: View {
             }
         }
         .aspectRatio(contentMode: .fit)
-        .frame(width: 20, height: 20)
+        .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+}
+
+private struct StartupItemPropertiesSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let item: StartupItem
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                StartupItemIcon(path: item.path, size: 34)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.name)
+                        .taskManagerFont(17, weight: .semibold)
+                        .foregroundStyle(WindowsTaskManagerTheme.textPrimary)
+                        .lineLimit(1)
+
+                    Text(item.publisher)
+                        .taskManagerFont(12)
+                        .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Button("Done") {
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(WindowsTaskManagerTheme.content)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(WindowsTaskManagerTheme.separator)
+                    .frame(height: 1)
+            }
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(item.properties) { property in
+                        StartupPropertyRow(name: property.name, value: property.value)
+                    }
+
+                    if item.properties.isEmpty {
+                        Text("No properties available")
+                            .taskManagerFont(13)
+                            .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+                            .frame(maxWidth: .infinity, minHeight: 120)
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+            .background(WindowsTaskManagerTheme.table)
+        }
+        .frame(width: 560, height: 460)
+    }
+}
+
+private struct StartupPropertyRow: View {
+    let name: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text(name)
+                .taskManagerFont(12, weight: .medium)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+                .frame(width: 150, alignment: .leading)
+
+            Text(value)
+                .taskManagerFont(12)
+                .foregroundStyle(WindowsTaskManagerTheme.textPrimary)
+                .textSelection(.enabled)
+                .lineLimit(4)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 9)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(WindowsTaskManagerTheme.separator)
+                .frame(height: 1)
+                .padding(.leading, 20)
+        }
     }
 }
 
@@ -300,4 +487,5 @@ private struct StartupHeaderCell: View {
             }
         }
     }
+
 }
