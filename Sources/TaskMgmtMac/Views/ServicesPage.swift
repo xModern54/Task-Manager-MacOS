@@ -11,7 +11,7 @@ struct ServicesPage: View {
             ServicesCommandBar(serviceCount: services.count)
 
             GeometryReader { geometry in
-                let detailWidth = max(300, geometry.size.width * 0.34)
+                let detailWidth = max(270, geometry.size.width * 0.30)
 
                 HStack(spacing: 0) {
                     ServicesTable(
@@ -168,11 +168,10 @@ private struct ServicesTableHeader: View {
             let width = geometry.size.width
 
             HStack(spacing: 0) {
-                ServiceHeaderCell(title: "Name", width: width * 0.40)
-                ServiceHeaderCell(title: "PID", width: width * 0.11)
-                ServiceHeaderCell(title: "Status", width: width * 0.15)
-                ServiceHeaderCell(title: "Type", width: width * 0.16)
-                ServiceHeaderCell(title: "Trigger", width: width * 0.18, showsSeparator: false)
+                ServiceHeaderCell(title: "Name", width: width * 0.50)
+                ServiceHeaderCell(title: "PID", width: width * 0.12)
+                ServiceHeaderCell(title: "Status", width: width * 0.18)
+                ServiceHeaderCell(title: "Trigger", width: width * 0.20, showsSeparator: false)
             }
         }
         .frame(height: 58)
@@ -195,11 +194,10 @@ private struct ServiceRow: View {
             let width = geometry.size.width
 
             HStack(spacing: 0) {
-                ServiceNameCell(service: service, width: width * 0.40)
-                ServiceTextCell(text: pidText, width: width * 0.11)
-                ServiceStatusCell(status: service.status, width: width * 0.15)
-                ServiceTextCell(text: service.kind.rawValue, width: width * 0.16)
-                ServiceTextCell(text: service.trigger, width: width * 0.18, showsSeparator: false)
+                ServiceNameCell(service: service, width: width * 0.50)
+                ServiceTextCell(text: pidText, width: width * 0.12)
+                ServiceStatusCell(status: service.status, width: width * 0.18)
+                ServiceTextCell(text: service.trigger, width: width * 0.20, showsSeparator: false)
             }
         }
         .frame(height: 46)
