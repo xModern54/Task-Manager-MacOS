@@ -249,8 +249,8 @@ private func runLaunchctl(arguments: [String]) -> (status: Int32, output: String
 
     do {
         try process.run()
-        process.waitUntilExit()
         let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        process.waitUntilExit()
         return (process.terminationStatus, output)
     } catch {
         return (1, error.localizedDescription)

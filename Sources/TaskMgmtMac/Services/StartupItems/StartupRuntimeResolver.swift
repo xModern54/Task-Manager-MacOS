@@ -185,8 +185,8 @@ private func runLaunchctlPrint(_ target: StartupItemControlTarget) -> (status: I
 
     do {
         try process.run()
-        process.waitUntilExit()
         let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        process.waitUntilExit()
         return (process.terminationStatus, output)
     } catch {
         return (1, error.localizedDescription)
