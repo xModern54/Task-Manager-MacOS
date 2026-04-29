@@ -626,6 +626,7 @@ enum TaskManagerSection: String, CaseIterable, Identifiable {
     case processes = "Processes"
     case devices = "Devices"
     case startupApps = "Startup apps"
+    case services = "Services"
     case settings = "Settings"
 
     var id: Self { self }
@@ -638,6 +639,8 @@ enum TaskManagerSection: String, CaseIterable, Identifiable {
             "waveform.path.ecg.rectangle"
         case .startupApps:
             "speedometer"
+        case .services:
+            "switch.2"
         case .settings:
             "gearshape"
         }

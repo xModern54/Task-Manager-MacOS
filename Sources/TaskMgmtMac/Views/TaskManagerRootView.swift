@@ -43,6 +43,10 @@ struct TaskManagerRootView: View {
                     StartupAppsPage(viewModel: viewModel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .layoutPriority(0)
+                case .services:
+                    ServicesPage()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .layoutPriority(0)
                 case .settings:
                     SettingsPage()
                 }

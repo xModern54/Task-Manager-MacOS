@@ -8,7 +8,7 @@ struct TaskManagerSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach([TaskManagerSection.processes, .devices, .startupApps]) { section in
+            ForEach([TaskManagerSection.processes, .devices, .startupApps, .services]) { section in
                 SidebarRow(
                     section: section,
                     isSelected: selection == section,
