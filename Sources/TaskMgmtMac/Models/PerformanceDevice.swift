@@ -161,7 +161,9 @@ struct PerformanceDevice: Identifiable, Hashable {
             color: Color(red: 0.21, green: 0.66, blue: 0.48),
             samples: Array(repeating: 0, count: 20),
             stats: [
-                PerformanceStat(label: "Utilization", value: "--"),
+                PerformanceStat(label: "ANE power", value: "--"),
+                PerformanceStat(label: "Activity", value: "--"),
+                PerformanceStat(label: "Utilization", value: "Not exposed"),
                 PerformanceStat(label: "Cores", value: "--"),
                 PerformanceStat(label: "Architecture", value: "--"),
                 PerformanceStat(label: "Version", value: "--"),

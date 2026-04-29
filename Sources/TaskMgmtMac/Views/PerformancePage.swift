@@ -66,7 +66,8 @@ struct PerformancePage: View {
             } else if device.kind == .npu {
                 return device.updatingNPUStats(
                     from: npuSnapshot,
-                    samples: npuHistory
+                    samples: npuHistory,
+                    sensorSnapshot: cpuSensorSnapshot
                 )
             } else if device.kind == .battery {
                 guard batterySnapshot.isPresent else { return nil }
@@ -396,7 +397,7 @@ private struct NPUPerformanceDetail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            LabeledGraph(title: "% Utilization", trailing: device.valueText, device: device, height: 340, fill: true)
+            LabeledGraph(title: "ANE Power", trailing: device.valueText, device: device, height: 340, fill: true)
             StatGrid(stats: device.stats, columns: 3)
         }
     }
@@ -715,15 +716,21 @@ private extension PerformanceDevice {
 
     func updatingNPUStats(
         from snapshot: SystemNPUSnapshot,
-        samples: [Double]
+        samples: [Double],
+        sensorSnapshot: SystemCPUSensorSnapshot
     ) -> PerformanceDevice {
         guard kind == .npu else { return self }
 
-        let utilizationText = snapshot.usagePercent.map { "\($0)%" } ?? "--"
+        let powerText = formattedNPUPower(sensorSnapshot.anePowerWatts)
+        let activityText = npuActivityText(from: sensorSnapshot.anePowerWatts)
         let updatedStats = stats.map { stat in
             switch stat.label {
+            case "ANE power":
+                PerformanceStat(label: stat.label, value: powerText)
+            case "Activity":
+                PerformanceStat(label: stat.label, value: activityText)
             case "Utilization":
-                PerformanceStat(label: stat.label, value: utilizationText)
+                PerformanceStat(label: stat.label, value: "Not exposed by macOS")
             case "Cores":
                 PerformanceStat(label: stat.label, value: snapshot.coreCount.map(String.init) ?? "--")
             case "Architecture":
@@ -748,11 +755,11 @@ private extension PerformanceDevice {
             kind: kind,
             title: title,
             subtitle: snapshot.name,
-            valueText: utilizationText,
+            valueText: powerText,
             detailTitle: detailTitle,
             detailSubtitle: snapshot.name,
             color: color,
-            samples: samples.isEmpty ? [0] : samples,
+            samples: normalizedPowerSamples(samples),
             stats: updatedStats + [
                 PerformanceStat(label: "Matched device", value: snapshot.matchedName)
             ]
@@ -912,6 +919,14 @@ private func normalizedNetworkSamples(_ samples: [Double]) -> [Double] {
     return samples.map { min(max($0 / maximum * 100, 0), 100) }
 }
 
+private func normalizedPowerSamples(_ samples: [Double]) -> [Double] {
+    guard let maximum = samples.max(), maximum > 0 else {
+        return samples.isEmpty ? [0] : samples
+    }
+
+    return samples.map { min(max($0 / maximum * 100, 0), 100) }
+}
+
 private extension PerformanceDevice {
     var outlineColor: Color {
         switch kind {
@@ -959,6 +974,32 @@ private func formattedMilliamps(_ milliamps: Int?) -> String {
 private func formattedWatts(_ watts: Double?) -> String {
     guard let watts else { return "--" }
     return String(format: "%.2f W", watts)
+}
+
+private func formattedNPUPower(_ watts: Double?) -> String {
+    guard let watts else { return "--" }
+
+    if watts < 1 {
+        return String(format: "%.0f mW", watts * 1_000)
+    }
+
+    return String(format: "%.2f W", watts)
+}
+
+private func npuActivityText(from watts: Double?) -> String {
+    guard let watts else {
+        return "Unavailable"
+    }
+
+    if watts < 0.05 {
+        return "Idle"
+    }
+
+    if watts < 0.5 {
+        return "Active"
+    }
+
+    return "High"
 }
 
 private func formattedMilliampHours(_ milliampHours: Int?) -> String {

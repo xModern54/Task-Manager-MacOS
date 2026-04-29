@@ -243,7 +243,7 @@ final class TaskManagerViewModel: ObservableObject {
             || (selectedSection == .devices && selectedPerformanceDeviceID == "cpu")
         let shouldCollectPerformanceSamples = selectedSection == .devices
         let shouldCollectPowerSensors = selectedSection == .devices
-            && ["cpu", "gpu0", "battery0"].contains(selectedPerformanceDeviceID)
+            && ["cpu", "gpu0", "npu0", "battery0"].contains(selectedPerformanceDeviceID)
 
         async let monitoredSnapshot = monitor.currentSnapshot(includesProcesses: shouldCollectProcessList)
         async let currentCPUSensorSnapshot = shouldCollectPowerSensors
@@ -296,7 +296,7 @@ final class TaskManagerViewModel: ObservableObject {
             appendGPUHistoryValue(Double(nextGPUSnapshot.usagePercent))
             appendDiskHistoryValue(Double(nextDiskSnapshot.activePercent))
             appendNetworkHistoryValue(Double(nextNetworkSnapshot.throughputBytesPerSecond))
-            appendNPUHistoryValue(Double(nextNPUSnapshot.usagePercent ?? 0))
+            appendNPUHistoryValue(nextCPUSensorSnapshot.anePowerWatts ?? 0)
             appendBatteryHistoryValue(Double(nextBatterySnapshot.levelPercent))
         }
 
