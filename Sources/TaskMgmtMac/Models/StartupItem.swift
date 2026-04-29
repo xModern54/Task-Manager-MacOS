@@ -41,8 +41,12 @@ struct StartupRuntimeSnapshot: Hashable, Sendable {
     static let unknown = StartupRuntimeSnapshot(state: .unknown, pid: nil, detail: nil)
 
     var displayText: String {
-        guard let pid else { return state.rawValue }
-        return "\(state.rawValue) · PID \(pid)"
+        switch state {
+        case .running, .appRunning:
+            "Running"
+        case .idle, .notLoaded, .disabled, .unknown:
+            state.rawValue
+        }
     }
 }
 

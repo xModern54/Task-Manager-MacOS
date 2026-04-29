@@ -40,7 +40,7 @@ struct TaskManagerRootView: View {
                         selectedDeviceID: $viewModel.selectedPerformanceDeviceID
                     )
                 case .startupApps:
-                    StartupAppsPage()
+                    StartupAppsPage(viewModel: viewModel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .layoutPriority(0)
                 case .settings:

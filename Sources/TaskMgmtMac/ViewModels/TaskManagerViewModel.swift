@@ -46,6 +46,7 @@ final class TaskManagerViewModel: ObservableObject {
     private let cpuSensorProvider: any SystemCPUSensorProviding
     private var immediateRefreshTask: Task<Void, Never>?
     private var isProcessTableScrolling = false
+    private var pendingFocusedProcessID: ProcessMetric.ID?
 
     init(
         monitor: ProcessMonitoringProviding,
@@ -205,6 +206,16 @@ final class TaskManagerViewModel: ObservableObject {
         selectedProcessGroupID = nil
     }
 
+    func focusProcess(_ processID: ProcessMetric.ID) {
+        searchText = ""
+        pendingFocusedProcessID = processID
+        selectedSection = .processes
+
+        if !applyPendingProcessFocusIfPossible() {
+            requestImmediateRefresh()
+        }
+    }
+
     func selectProcessRow(_ row: ProcessTableRow) {
         if row.isGroup {
             selectedProcessGroupID = row.id
@@ -264,6 +275,7 @@ final class TaskManagerViewModel: ObservableObject {
             if !isProcessTableScrolling {
                 rebuildVisibleProcessRows()
             }
+            _ = applyPendingProcessFocusIfPossible()
         }
         appendCPUHistoryValue(Double(nextSnapshot.summary.cpu))
         appendMemoryHistoryValue(Double(nextSnapshot.summary.memory))
@@ -354,6 +366,25 @@ final class TaskManagerViewModel: ObservableObject {
         let rows = makeVisibleProcessRows(from: snapshot.processes)
         visibleProcessRows = rows
         ProcessIconCache.shared.warmIcons(for: rows.filter(\.isGroup).map(\.metric))
+    }
+
+    @discardableResult
+    private func applyPendingProcessFocusIfPossible() -> Bool {
+        guard let pendingFocusedProcessID,
+              let process = snapshot.processes.first(where: { $0.id == pendingFocusedProcessID }) else {
+            return false
+        }
+
+        let group = processAppGroup(for: process)
+        if group.shouldGroup {
+            expandedProcessGroupIDs.insert(group.id)
+            rebuildVisibleProcessRows()
+        }
+
+        selectedProcessID = pendingFocusedProcessID
+        selectedProcessGroupID = nil
+        self.pendingFocusedProcessID = nil
+        return true
     }
 
     private func appendCPUHistoryValue(_ value: Double) {

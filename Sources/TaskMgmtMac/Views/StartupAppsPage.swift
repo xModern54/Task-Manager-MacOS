@@ -2,6 +2,7 @@
 import SwiftUI
 
 struct StartupAppsPage: View {
+    @ObservedObject var viewModel: TaskManagerViewModel
     @EnvironmentObject private var settings: TaskManagerSettings
     @State private var startupItems: [StartupItem] = []
     @State private var isLoading = true
@@ -32,6 +33,11 @@ struct StartupAppsPage: View {
                 selectionColor: settings.effectiveAccentColor,
                 onSelect: { item in
                     selectedItemID = item.id
+                },
+                onOpenRuntimeProcess: { item in
+                    guard let pid = item.runtime.pid else { return }
+                    selectedItemID = item.id
+                    viewModel.focusProcess(Int(pid))
                 }
             )
         }
@@ -172,6 +178,7 @@ private struct StartupAppsTable: View {
     let selectedItemID: StartupItem.ID?
     let selectionColor: Color
     let onSelect: (StartupItem) -> Void
+    let onOpenRuntimeProcess: (StartupItem) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -192,6 +199,9 @@ private struct StartupAppsTable: View {
                             )
                                 .onTapGesture {
                                     onSelect(item)
+                                }
+                                .onTapGesture(count: 2) {
+                                    onOpenRuntimeProcess(item)
                                 }
                         }
                     }

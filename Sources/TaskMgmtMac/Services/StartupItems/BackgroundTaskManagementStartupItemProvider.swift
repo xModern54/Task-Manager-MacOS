@@ -521,6 +521,7 @@ private func properties(
     appendProperty("publisher", "Publisher", displayPublisher(for: record, children: children), to: &properties)
     appendProperty("status", "Status", status(for: ([record] + children).filter { isConcreteBackgroundRecord($0) }).rawValue, to: &properties)
     appendProperty("runtime", "Runtime", runtime.displayText, to: &properties)
+    appendProperty("runtimePID", "Runtime PID", runtime.pid.map(String.init), to: &properties)
     appendProperty("runtimeDetail", "Runtime detail", runtime.detail, to: &properties)
     appendProperty("source", "Source", source(for: record).rawValue, to: &properties)
     appendProperty("uuid", "UUID", record.uuid, to: &properties)

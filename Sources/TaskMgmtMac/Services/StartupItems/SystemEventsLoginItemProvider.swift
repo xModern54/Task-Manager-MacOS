@@ -84,6 +84,7 @@ private func parseLoginItemLine(_ line: String, runtimeResolver: StartupRuntimeR
         properties: [
             StartupItemProperty(id: "name", name: "Name", value: name),
             StartupItemProperty(id: "runtime", name: "Runtime", value: runtime.displayText),
+            StartupItemProperty(id: "runtimePID", name: "Runtime PID", value: runtime.pid.map(String.init) ?? "None"),
             StartupItemProperty(id: "path", name: "Path", value: path ?? "Unknown"),
             StartupItemProperty(id: "hidden", name: "Hidden", value: hidden ? "Yes" : "No"),
             StartupItemProperty(id: "source", name: "Source", value: StartupItemSource.loginItem.rawValue)

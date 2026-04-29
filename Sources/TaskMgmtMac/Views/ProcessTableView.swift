@@ -22,65 +22,86 @@ struct ProcessTableView: View {
     @State private var isScrolling = false
 
     var body: some View {
-        ScrollView(.vertical) {
-            LazyVStack(spacing: 0) {
-                ProcessTableHeader(
-                    summary: summary,
-                    sortColumn: sortColumn,
-                    sortDirection: sortDirection,
-                    onSort: onSort
-                )
-
-                ForEach(visibleRows) { row in
-                    ProcessRow(
-                        row: row,
-                        isSelected: row.isGroup ? selectedProcessGroupID == row.id : selectedProcessID == row.metric.id,
-                        onToggleGroup: onContextToggleGroup,
-                        onEndTask: onContextEndTask,
-                        onOpenDetails: onContextOpenDetails,
-                        onRevealFile: onContextRevealFile,
-                        onSearchOnline: onContextSearchOnline,
-                        onCopyInfo: onContextCopyInfo
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 0) {
+                    ProcessTableHeader(
+                        summary: summary,
+                        sortColumn: sortColumn,
+                        sortDirection: sortDirection,
+                        onSort: onSort
                     )
-                    .onTapGesture {
-                        if row.isGroup {
-                            onGroupTap(row.id)
-                        } else {
-                            onSelectProcess(row.metric.id)
+
+                    ForEach(visibleRows) { row in
+                        ProcessRow(
+                            row: row,
+                            isSelected: row.isGroup ? selectedProcessGroupID == row.id : selectedProcessID == row.metric.id,
+                            onToggleGroup: onContextToggleGroup,
+                            onEndTask: onContextEndTask,
+                            onOpenDetails: onContextOpenDetails,
+                            onRevealFile: onContextRevealFile,
+                            onSearchOnline: onContextSearchOnline,
+                            onCopyInfo: onContextCopyInfo
+                        )
+                        .id(row.id)
+                        .onTapGesture {
+                            if row.isGroup {
+                                onGroupTap(row.id)
+                            } else {
+                                onSelectProcess(row.metric.id)
+                            }
                         }
                     }
                 }
+                .frame(minWidth: ProcessTableLayout.tableWidth, maxWidth: .infinity, alignment: .leading)
             }
-            .frame(minWidth: ProcessTableLayout.tableWidth, maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .scrollIndicators(.visible)
-        .background(WindowsTaskManagerTheme.table)
-        .background(
-            ScrollActivityReader { scrolling in
-                onScrollActivity(scrolling)
-                if scrolling {
-                    if !isScrolling {
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollIndicators(.visible)
+            .background(WindowsTaskManagerTheme.table)
+            .background(
+                ScrollActivityReader { scrolling in
+                    onScrollActivity(scrolling)
+                    if scrolling {
+                        if !isScrolling {
+                            displayedRows = rows
+                        }
+                        isScrolling = true
+                    } else {
+                        isScrolling = false
                         displayedRows = rows
                     }
-                    isScrolling = true
-                } else {
-                    isScrolling = false
-                    displayedRows = rows
                 }
+            )
+            .onAppear {
+                displayedRows = rows
+                scrollToSelectedProcess(with: proxy, in: rows)
             }
-        )
-        .onAppear {
-            displayedRows = rows
-        }
-        .onChange(of: rows) { _, newRows in
-            guard !isScrolling else { return }
-            displayedRows = newRows
+            .onChange(of: rows) { _, newRows in
+                guard !isScrolling else { return }
+                displayedRows = newRows
+                scrollToSelectedProcess(with: proxy, in: newRows)
+            }
+            .onChange(of: selectedProcessID) { _, _ in
+                scrollToSelectedProcess(with: proxy, in: visibleRows)
+            }
         }
     }
 
     private var visibleRows: [ProcessTableRow] {
         displayedRows.isEmpty ? rows : displayedRows
+    }
+
+    private func scrollToSelectedProcess(with proxy: ScrollViewProxy, in rows: [ProcessTableRow]) {
+        guard let selectedProcessID,
+              let rowID = rows.first(where: { !$0.isGroup && $0.metric.id == selectedProcessID })?.id else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                proxy.scrollTo(rowID, anchor: .center)
+            }
+        }
     }
 }
 
