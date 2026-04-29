@@ -5,6 +5,7 @@ struct CompositeStartupItemProvider: StartupItemProviding {
 
     init(providers: [any StartupItemProviding] = [
         BackgroundTaskManagementStartupItemProvider(),
+        LaunchAgentPlistStartupItemProvider(),
         SystemEventsLoginItemProvider()
     ]) {
         self.providers = providers
@@ -31,6 +32,10 @@ struct CompositeStartupItemProvider: StartupItemProviding {
 }
 
 private func deduplicationKey(for item: StartupItem) -> String {
+    if !item.controlTargets.isEmpty {
+        return "target:\(item.controlTargets.map(\.id).sorted().joined(separator: "|"))"
+    }
+
     if let path = item.path {
         return "path:\(path)"
     }
