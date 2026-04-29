@@ -2,6 +2,7 @@
 import SwiftUI
 
 struct StartupAppsPage: View {
+    @EnvironmentObject private var settings: TaskManagerSettings
     @State private var startupItems: [StartupItem] = []
     @State private var isLoading = true
     @State private var selectedItemID: StartupItem.ID?
@@ -28,6 +29,7 @@ struct StartupAppsPage: View {
                 items: startupItems,
                 isLoading: isLoading,
                 selectedItemID: selectedItemID,
+                selectionColor: settings.effectiveAccentColor,
                 onSelect: { item in
                     selectedItemID = item.id
                 }
@@ -168,6 +170,7 @@ private struct StartupAppsTable: View {
     let items: [StartupItem]
     let isLoading: Bool
     let selectedItemID: StartupItem.ID?
+    let selectionColor: Color
     let onSelect: (StartupItem) -> Void
 
     var body: some View {
@@ -182,7 +185,11 @@ private struct StartupAppsTable: View {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(items) { item in
-                            StartupItemRow(item: item, isSelected: item.id == selectedItemID)
+                            StartupItemRow(
+                                item: item,
+                                isSelected: item.id == selectedItemID,
+                                selectionColor: selectionColor
+                            )
                                 .onTapGesture {
                                     onSelect(item)
                                 }
@@ -234,6 +241,7 @@ private struct StartupAppsEmptyView: View {
 private struct StartupItemRow: View {
     let item: StartupItem
     let isSelected: Bool
+    let selectionColor: Color
 
     var body: some View {
         GeometryReader { geometry in
@@ -265,7 +273,7 @@ private struct StartupItemRow: View {
     }
 
     private var rowBackground: some ShapeStyle {
-        isSelected ? WindowsTaskManagerTheme.accent.opacity(0.18) : WindowsTaskManagerTheme.table
+        isSelected ? selectionColor.opacity(0.18) : WindowsTaskManagerTheme.table
     }
 }
 
