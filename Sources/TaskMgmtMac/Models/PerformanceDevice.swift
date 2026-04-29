@@ -153,10 +153,10 @@ struct PerformanceDevice: Identifiable, Hashable {
         PerformanceDevice(
             id: "npu0",
             kind: .npu,
-            title: "NPU 0",
-            subtitle: "Neural Engine",
+            title: "ANE 0",
+            subtitle: "Apple Neural Engine",
             valueText: "--",
-            detailTitle: "NPU",
+            detailTitle: "ANE",
             detailSubtitle: "Apple Neural Engine",
             color: Color(red: 0.21, green: 0.66, blue: 0.48),
             samples: Array(repeating: 0, count: 20),
