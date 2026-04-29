@@ -107,6 +107,7 @@ private struct ProcessDetailsWindow: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .focusable(false)
             }
         }
         .padding(.horizontal, 20)
