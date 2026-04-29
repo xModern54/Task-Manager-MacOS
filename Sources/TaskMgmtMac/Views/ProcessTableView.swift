@@ -8,6 +8,7 @@ struct ProcessTableView: View {
     let sortDirection: SortDirection
     @Binding var selectedProcessID: ProcessMetric.ID?
     @Binding var selectedProcessGroupID: ProcessTableRow.ID?
+    let focusScrollTargetID: ProcessMetric.ID?
     let onSort: (ProcessSortColumn) -> Void
     let onSelectProcess: (ProcessMetric.ID) -> Void
     let onGroupTap: (ProcessTableRow.ID) -> Void
@@ -17,6 +18,7 @@ struct ProcessTableView: View {
     let onContextRevealFile: (ProcessTableRow) -> Void
     let onContextSearchOnline: (ProcessTableRow) -> Void
     let onContextCopyInfo: (ProcessTableRow) -> Void
+    let onFocusScrollConsumed: (ProcessMetric.ID) -> Void
     let onScrollActivity: (Bool) -> Void
     @State private var displayedRows: [ProcessTableRow] = []
     @State private var isScrolling = false
@@ -74,15 +76,15 @@ struct ProcessTableView: View {
             )
             .onAppear {
                 displayedRows = rows
-                scrollToSelectedProcess(with: proxy, in: rows)
+                scrollToFocusTarget(with: proxy, in: rows)
             }
             .onChange(of: rows) { _, newRows in
                 guard !isScrolling else { return }
                 displayedRows = newRows
-                scrollToSelectedProcess(with: proxy, in: newRows)
+                scrollToFocusTarget(with: proxy, in: newRows)
             }
-            .onChange(of: selectedProcessID) { _, _ in
-                scrollToSelectedProcess(with: proxy, in: visibleRows)
+            .onChange(of: focusScrollTargetID) { _, _ in
+                scrollToFocusTarget(with: proxy, in: visibleRows)
             }
         }
     }
@@ -91,9 +93,9 @@ struct ProcessTableView: View {
         displayedRows.isEmpty ? rows : displayedRows
     }
 
-    private func scrollToSelectedProcess(with proxy: ScrollViewProxy, in rows: [ProcessTableRow]) {
-        guard let selectedProcessID,
-              let rowID = rows.first(where: { !$0.isGroup && $0.metric.id == selectedProcessID })?.id else {
+    private func scrollToFocusTarget(with proxy: ScrollViewProxy, in rows: [ProcessTableRow]) {
+        guard let focusScrollTargetID,
+              let rowID = rows.first(where: { !$0.isGroup && $0.metric.id == focusScrollTargetID })?.id else {
             return
         }
 
@@ -101,6 +103,7 @@ struct ProcessTableView: View {
             withAnimation(.easeInOut(duration: 0.18)) {
                 proxy.scrollTo(rowID, anchor: .center)
             }
+            onFocusScrollConsumed(focusScrollTargetID)
         }
     }
 }

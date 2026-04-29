@@ -33,6 +33,7 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var batterySnapshot = SystemBatterySnapshot.unavailable
     @Published private(set) var cpuSensorSnapshot = SystemCPUSensorSnapshot.unavailable
     @Published private(set) var visibleProcessRows: [ProcessTableRow] = []
+    @Published private(set) var processFocusScrollTargetID: ProcessMetric.ID?
     @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
 
     private let historyLimit = 60
@@ -216,6 +217,11 @@ final class TaskManagerViewModel: ObservableObject {
         }
     }
 
+    func consumeProcessFocusScrollTarget(_ processID: ProcessMetric.ID) {
+        guard processFocusScrollTargetID == processID else { return }
+        processFocusScrollTargetID = nil
+    }
+
     func selectProcessRow(_ row: ProcessTableRow) {
         if row.isGroup {
             selectedProcessGroupID = row.id
@@ -383,6 +389,7 @@ final class TaskManagerViewModel: ObservableObject {
 
         selectedProcessID = pendingFocusedProcessID
         selectedProcessGroupID = nil
+        processFocusScrollTargetID = pendingFocusedProcessID
         self.pendingFocusedProcessID = nil
         return true
     }

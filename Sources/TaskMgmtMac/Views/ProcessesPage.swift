@@ -30,6 +30,7 @@ struct ProcessesPage: View {
                     sortDirection: viewModel.sortDirection,
                     selectedProcessID: $viewModel.selectedProcessID,
                     selectedProcessGroupID: $viewModel.selectedProcessGroupID,
+                    focusScrollTargetID: viewModel.processFocusScrollTargetID,
                     onSort: viewModel.sort(by:),
                     onSelectProcess: viewModel.selectProcess(_:),
                     onGroupTap: viewModel.selectAndToggleProcessGroup(_:),
@@ -39,6 +40,7 @@ struct ProcessesPage: View {
                     onContextRevealFile: revealFile(for:),
                     onContextSearchOnline: searchOnline(for:),
                     onContextCopyInfo: copyInfo(for:),
+                    onFocusScrollConsumed: viewModel.consumeProcessFocusScrollTarget(_:),
                     onScrollActivity: viewModel.setProcessTableScrolling(_:)
                 )
             } else {
