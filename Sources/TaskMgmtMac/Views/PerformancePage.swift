@@ -19,8 +19,7 @@ struct PerformancePage: View {
     @Binding var selectedDeviceID: PerformanceDevice.ID
 
     @State private var processorName: String?
-    @State private var processorSpeedText: String?
-    @State private var systemBootDate: Date?
+    @State private var uptimeSeconds: Int?
     @State private var didLoadProcessorName = false
 
     private let cpuInfoProvider: any SystemCPUInfoProviding = SysctlCPUInfoProvider()
@@ -32,7 +31,6 @@ struct PerformancePage: View {
                     from: summary,
                     samples: cpuHistory,
                     sensorSnapshot: cpuSensorSnapshot,
-                    fallbackSpeedText: processorSpeedText ?? "--",
                     uptimeText: uptimeText
                 )
             } else if device.kind == .memory {
@@ -101,9 +99,7 @@ struct PerformancePage: View {
     }
 
     private var uptimeText: String {
-        guard let systemBootDate else { return "--" }
-
-        let uptimeSeconds = max(Int(Date().timeIntervalSince(systemBootDate)), 0)
+        guard let uptimeSeconds else { return "--" }
         let days = uptimeSeconds / 86_400
         let hours = (uptimeSeconds % 86_400) / 3_600
         let minutes = (uptimeSeconds % 3_600) / 60
@@ -137,8 +133,21 @@ struct PerformancePage: View {
             guard !didLoadProcessorName else { return }
             didLoadProcessorName = true
             processorName = cpuInfoProvider.processorName()
-            processorSpeedText = cpuInfoProvider.processorSpeedText()
-            systemBootDate = cpuInfoProvider.systemBootDate()
+            if let systemBootDate = cpuInfoProvider.systemBootDate() {
+                uptimeSeconds = max(Int(Date().timeIntervalSince(systemBootDate)), 0)
+            }
+        }
+        .task {
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(1))
+                } catch {
+                    return
+                }
+
+                guard uptimeSeconds != nil else { continue }
+                uptimeSeconds? += 1
+            }
         }
     }
 }
@@ -327,7 +336,7 @@ private struct CPUPerformanceDetail: View {
                 }
             }
 
-            StatGrid(stats: device.stats, columns: 3)
+            StatGrid(stats: device.stats, columns: 4)
         }
     }
 }
@@ -480,37 +489,21 @@ private extension PerformanceDevice {
         from summary: ProcessSummary,
         samples: [Double],
         sensorSnapshot: SystemCPUSensorSnapshot,
-        fallbackSpeedText: String,
         uptimeText: String
     ) -> PerformanceDevice {
         guard kind == .cpu else { return self }
 
-        let speedText = sensorSnapshot.speedText ?? fallbackSpeedText
-        let updatedStats = stats.map { stat in
-            switch stat.label {
-            case "Utilization":
-                PerformanceStat(label: stat.label, value: "\(summary.cpu)%")
-            case "Processes":
-                PerformanceStat(label: stat.label, value: "\(summary.processCount)")
-            case "Threads":
-                PerformanceStat(label: stat.label, value: "\(summary.threadCount)")
-            case "Speed":
-                PerformanceStat(label: stat.label, value: speedText)
-            case "Up time":
-                PerformanceStat(label: stat.label, value: uptimeText)
-            default:
-                stat
-            }
-        }
-
-        let sensorStats = [
+        let updatedStats = [
+            PerformanceStat(label: "Utilization", value: "\(summary.cpu)%"),
+            PerformanceStat(label: "Processes", value: "\(summary.processCount)"),
+            PerformanceStat(label: "Threads", value: "\(summary.threadCount)"),
+            PerformanceStat(label: "Up time", value: uptimeText),
             PerformanceStat(label: "P-core speed", value: sensorSnapshot.performanceFrequencyMHz.map { formatCPUFrequency($0) } ?? "--"),
             PerformanceStat(label: "E-core speed", value: sensorSnapshot.efficiencyFrequencyMHz.map { formatCPUFrequency($0) } ?? "--"),
             PerformanceStat(label: "Temperature", value: formattedTemperature(sensorSnapshot.temperatureCelsius)),
-            PerformanceStat(label: "Package power", value: formattedWatts(sensorSnapshot.combinedPowerWatts)),
-            PerformanceStat(label: "CPU power", value: formattedWatts(sensorSnapshot.cpuPowerWatts)),
             PerformanceStat(label: "Thermal pressure", value: sensorSnapshot.thermalPressure),
-            PerformanceStat(label: "Sensor error", value: sensorSnapshot.lastError ?? "--")
+            PerformanceStat(label: "CPU power", value: formattedWatts(sensorSnapshot.cpuPowerWatts)),
+            PerformanceStat(label: "Package power", value: formattedWatts(sensorSnapshot.combinedPowerWatts))
         ]
 
         return PerformanceDevice(
@@ -518,12 +511,12 @@ private extension PerformanceDevice {
             kind: kind,
             title: title,
             subtitle: subtitle,
-            valueText: "\(summary.cpu)% \(speedText)",
+            valueText: "\(summary.cpu)%",
             detailTitle: detailTitle,
             detailSubtitle: detailSubtitle,
             color: color,
             samples: samples.isEmpty ? [0] : samples,
-            stats: updatedStats + sensorStats
+            stats: updatedStats
         )
     }
 

@@ -35,7 +35,6 @@ struct PerformanceDevice: Identifiable, Hashable {
             samples: [0, 0, 0, 0, 0.2, 0.1, 2, 0.3, 0, 0, 0.6, 0.1, 0, 3, 0.4, 0.2, 0, 0, 0.1, 31],
             stats: [
                 PerformanceStat(label: "Utilization", value: "3%"),
-                PerformanceStat(label: "Speed", value: "5.03 GHz"),
                 PerformanceStat(label: "Processes", value: "78"),
                 PerformanceStat(label: "Threads", value: "1741"),
                 PerformanceStat(label: "Up time", value: "0:02:11:47")
