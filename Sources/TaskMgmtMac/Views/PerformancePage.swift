@@ -417,8 +417,64 @@ private struct BatteryPerformanceDetail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            LabeledGraph(title: "Battery level", trailing: "100%", device: device, height: 340, fill: true)
-            StatGrid(stats: device.stats, columns: 2)
+            LabeledGraph(title: "Battery level", trailing: "100%", device: device, height: 230, fill: true)
+            BatteryStatsLayout(stats: device.stats)
+        }
+    }
+}
+
+private struct BatteryStatsLayout: View {
+    let stats: [PerformanceStat]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            BatteryStatSection(title: "Status", stats: stats(with: [
+                "Level",
+                "Power source",
+                "Charge state",
+                "Charge type",
+                "Time remaining",
+                "Adapter"
+            ]))
+
+            BatteryStatSection(title: "Health and capacity", stats: stats(with: [
+                "Cycles",
+                "Technology",
+                "Current charge",
+                "Max charge",
+                "Design capacity",
+                "Temperature"
+            ]))
+
+            BatteryStatSection(title: "Power", stats: stats(with: [
+                "Power now",
+                "Voltage",
+                "Current now",
+                "Package power"
+            ]))
+        }
+        .padding(.top, 2)
+    }
+
+    private func stats(with labels: [String]) -> [PerformanceStat] {
+        labels.compactMap { label in
+            stats.first { $0.label == label }
+        }
+    }
+}
+
+private struct BatteryStatSection: View {
+    let title: String
+    let stats: [PerformanceStat]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .taskManagerFont(11, weight: .semibold)
+                .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+
+            StatGrid(stats: stats, columns: 3)
+                .padding(.top, 0)
         }
     }
 }
@@ -768,45 +824,26 @@ private extension PerformanceDevice {
         } else {
             adapterText = snapshot.adapterName
         }
-        let hasAdapter = adapterText != "--"
+        let resolvedAdapterText = adapterText == "--" ? "Not connected" : adapterText
         let batteryTimeStat = batteryTimeStat(from: snapshot)
-
-        let updatedStats = stats.compactMap { stat -> PerformanceStat? in
-            switch stat.label {
-            case "Power source":
-                return PerformanceStat(label: stat.label, value: snapshot.powerSource)
-            case "Technology":
-                return PerformanceStat(label: stat.label, value: snapshot.technology)
-            case "Temperature":
-                return PerformanceStat(label: stat.label, value: formattedTemperature(snapshot.temperatureCelsius))
-            case "Voltage":
-                return PerformanceStat(label: stat.label, value: formattedVolts(snapshot.voltageVolts))
-            case "Current now":
-                return PerformanceStat(label: stat.label, value: formattedMilliamps(snapshot.currentMilliamps))
-            case "Power now":
-                return PerformanceStat(label: stat.label, value: formattedWatts(snapshot.powerWatts))
-            case "Charge type":
-                return PerformanceStat(label: stat.label, value: snapshot.chargeType)
-            case "Cycles":
-                return PerformanceStat(label: stat.label, value: snapshot.cycleCount.map(String.init) ?? "--")
-            case "Current charge":
-                return PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.currentChargeMilliampHours))
-            case "Max charge":
-                return PerformanceStat(label: stat.label, value: formattedMilliampHours(snapshot.maxChargeMilliampHours))
-            case "Level":
-                return PerformanceStat(label: stat.label, value: "\(snapshot.levelPercent)%")
-            case "Time to full":
-                return batteryTimeStat.label == "Time to full" ? batteryTimeStat : nil
-            case "Time to empty":
-                return batteryTimeStat.label == "Time to empty" ? batteryTimeStat : nil
-            case "Adapter":
-                return hasAdapter ? PerformanceStat(label: stat.label, value: adapterText) : nil
-            case "Package power":
-                return PerformanceStat(label: stat.label, value: formattedWatts(sensorSnapshot.combinedPowerWatts))
-            default:
-                return stat
-            }
-        }
+        let updatedStats = [
+            PerformanceStat(label: "Level", value: "\(snapshot.levelPercent)%"),
+            PerformanceStat(label: "Power source", value: snapshot.powerSource),
+            PerformanceStat(label: "Charge state", value: snapshot.chargeState),
+            PerformanceStat(label: "Charge type", value: snapshot.chargeType),
+            PerformanceStat(label: "Time remaining", value: batteryTimeStat.value),
+            PerformanceStat(label: "Adapter", value: resolvedAdapterText),
+            PerformanceStat(label: "Cycles", value: snapshot.cycleCount.map(String.init) ?? "--"),
+            PerformanceStat(label: "Technology", value: snapshot.technology),
+            PerformanceStat(label: "Current charge", value: formattedMilliampHours(snapshot.currentChargeMilliampHours)),
+            PerformanceStat(label: "Max charge", value: formattedMilliampHours(snapshot.maxChargeMilliampHours)),
+            PerformanceStat(label: "Design capacity", value: formattedMilliampHours(snapshot.designCapacityMilliampHours)),
+            PerformanceStat(label: "Temperature", value: formattedTemperature(snapshot.temperatureCelsius)),
+            PerformanceStat(label: "Power now", value: formattedWatts(snapshot.powerWatts)),
+            PerformanceStat(label: "Voltage", value: formattedVolts(snapshot.voltageVolts)),
+            PerformanceStat(label: "Current now", value: formattedMilliamps(snapshot.currentMilliamps)),
+            PerformanceStat(label: "Package power", value: formattedWatts(sensorSnapshot.combinedPowerWatts))
+        ]
 
         return PerformanceDevice(
             id: id,
