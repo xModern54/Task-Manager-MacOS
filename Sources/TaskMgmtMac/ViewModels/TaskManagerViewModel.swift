@@ -68,8 +68,10 @@ final class TaskManagerViewModel: ObservableObject {
     }
 
     private func makeVisibleProcessRows(from processes: [ProcessMetric]) -> [ProcessTableRow] {
-        let groups = Dictionary(grouping: filteredProcesses(from: processes)) { process in
-            processAppGroup(for: process)
+        let filtered = filteredProcesses(from: processes)
+        let safariAppRoot = safariGroupRoot(in: filtered)
+        let groups = Dictionary(grouping: filtered) { process in
+            processAppGroup(for: process, safariAppRoot: safariAppRoot)
         }
 
         let groupedRows = groups.map { group, processes in
@@ -381,7 +383,8 @@ final class TaskManagerViewModel: ObservableObject {
             return false
         }
 
-        let group = processAppGroup(for: process)
+        let safariAppRoot = safariGroupRoot(in: snapshot.processes)
+        let group = processAppGroup(for: process, safariAppRoot: safariAppRoot)
         if group.shouldGroup {
             expandedProcessGroupIDs.insert(group.id)
             rebuildVisibleProcessRows()
@@ -493,7 +496,20 @@ final class TaskManagerViewModel: ObservableObject {
         }
     }
 
-    private func processAppGroup(for process: ProcessMetric) -> ProcessAppGroup {
+    private func processAppGroup(
+        for process: ProcessMetric,
+        safariAppRoot: (path: String, name: String)?
+    ) -> ProcessAppGroup {
+        if isSafariWebKitAuxiliaryProcess(process),
+           let safariAppRoot {
+            return ProcessAppGroup(
+                id: "app-\(safariAppRoot.path)",
+                name: safariAppRoot.name,
+                executablePath: safariAppRoot.path,
+                shouldGroup: true
+            )
+        }
+
         guard let executablePath = process.executablePath,
               let appRoot = appBundleRoot(from: executablePath) else {
             return ProcessAppGroup(
@@ -510,6 +526,33 @@ final class TaskManagerViewModel: ObservableObject {
             executablePath: appRoot.path,
             shouldGroup: true
         )
+    }
+
+    private func safariGroupRoot(in processes: [ProcessMetric]) -> (path: String, name: String)? {
+        for process in processes {
+            guard process.name.caseInsensitiveCompare("Safari") == .orderedSame,
+                  let executablePath = process.executablePath,
+                  let appRoot = appBundleRoot(from: executablePath) else {
+                continue
+            }
+
+            return appRoot
+        }
+
+        return nil
+    }
+
+    private func isSafariWebKitAuxiliaryProcess(_ process: ProcessMetric) -> Bool {
+        guard process.name.hasPrefix("com.apple.WebKit.") else {
+            return false
+        }
+
+        guard let executablePath = process.executablePath else {
+            return false
+        }
+
+        return executablePath.contains("/System/Library/Frameworks/WebKit.framework/")
+            && executablePath.contains("/XPCServices/com.apple.WebKit.")
     }
 
     private func appBundleRoot(from executablePath: String) -> (path: String, name: String)? {
