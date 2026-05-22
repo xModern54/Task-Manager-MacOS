@@ -45,9 +45,6 @@ cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMac"
 if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
   cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 fi
-if [ -f "$ROOT_DIR/Resources/AppIconLight.icns" ]; then
-  cp "$ROOT_DIR/Resources/AppIconLight.icns" "$APP_DIR/Contents/Resources/AppIconLight.icns"
-fi
 
 plutil -create xml1 "$PLIST"
 /usr/libexec/PlistBuddy \

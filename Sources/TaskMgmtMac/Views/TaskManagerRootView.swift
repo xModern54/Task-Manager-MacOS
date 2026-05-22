@@ -58,7 +58,6 @@ struct TaskManagerRootView: View {
         .background(WindowConfigurator())
         .task {
             viewModel.setRefreshInterval(settings.refreshInterval)
-            DockIconManager.shared.startMonitoring()
             await viewModel.startRefreshing()
         }
         .onChange(of: settings.refreshInterval) { _, newInterval in
