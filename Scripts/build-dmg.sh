@@ -62,7 +62,7 @@ plutil -create xml1 "$PLIST"
   -c "Add :CFBundleDisplayName string Task Manager" \
   -c "Add :CFBundlePackageType string APPL" \
   -c "Add :CFBundleVersion string 1" \
-  -c "Add :CFBundleShortVersionString string 1.1" \
+  -c "Add :CFBundleShortVersionString string 1.2" \
   -c "Add :LSMinimumSystemVersion string 14.0" \
   -c "Add :CFBundleIconFile string AppIcon" \
   "$PLIST"
