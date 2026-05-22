@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct RootLaunchGate<Content: View>: View {
@@ -6,6 +7,10 @@ struct RootLaunchGate<Content: View>: View {
     var body: some View {
         if RootLaunchManager.isRunningAsRoot {
             content
+                .onAppear {
+                    // Force the app to activate and come to the foreground when running as root
+                    NSApp.activate(ignoringOtherApps: true)
+                }
         } else {
             RootAccessRequiredView()
         }
