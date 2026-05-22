@@ -40,7 +40,11 @@ pkill -x TaskMgmtMac 2>/dev/null || true
 
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
+mkdir -p "$APP_DIR/Contents/Resources"
 cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMac"
+if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
+  cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+fi
 
 plutil -create xml1 "$PLIST"
 /usr/libexec/PlistBuddy \
@@ -51,6 +55,7 @@ plutil -create xml1 "$PLIST"
   -c "Add :CFBundleVersion string 1" \
   -c "Add :CFBundleShortVersionString string 0.1" \
   -c "Add :LSMinimumSystemVersion string 14.0" \
+  -c "Add :CFBundleIconFile string AppIcon" \
   "$PLIST"
 
 SIGN_IDENTITY="$(codesign_identity)"
