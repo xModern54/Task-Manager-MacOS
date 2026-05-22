@@ -6,3 +6,4 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 /TaskMgmtMac.app/
 *.zip
+*.dmg
