@@ -16,6 +16,10 @@ struct SystemNPUSnapshot: Sendable {
     let computeDeviceState: String
     let precisionSupport: String
 
+    var isPresent: Bool {
+        computeDeviceState == "Available"
+    }
+
     static let unavailable = SystemNPUSnapshot(
         name: "Neural Engine",
         usagePercent: nil,
@@ -25,7 +29,7 @@ struct SystemNPUSnapshot: Sendable {
         boardType: "--",
         registryClassName: "--",
         matchedName: "--",
-        computeDeviceState: "--",
+        computeDeviceState: "Unavailable",
         precisionSupport: "Core ML managed"
     )
 }

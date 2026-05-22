@@ -12,7 +12,7 @@ enum ProcessClipboardInfoBuilder {
         let searchQuery = "\(metric.name) macOS"
 
         var lines: [String] = [
-            "TaskMgmtMac process diagnostic context",
+            "Task Manager process diagnostic context",
             "",
             "Suggested question:",
             "What is this macOS process, what software or service does it belong to, is it expected, and what are the risks of disabling, quitting, or removing it?",

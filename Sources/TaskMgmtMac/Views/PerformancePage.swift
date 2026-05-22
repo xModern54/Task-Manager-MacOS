@@ -62,6 +62,7 @@ struct PerformancePage: View {
                     samples: networkHistory
                 )
             } else if device.kind == .npu {
+                guard npuSnapshot.isPresent else { return nil }
                 return device.updatingNPUStats(
                     from: npuSnapshot,
                     samples: npuHistory,

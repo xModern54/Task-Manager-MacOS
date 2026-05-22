@@ -42,7 +42,7 @@ enum RootLaunchManager {
     static func installRootLaunchRule() async throws {
         let username = NSUserName()
         let sudoersRule = """
-        # Allows TaskMgmtMac to relaunch itself as root without storing an administrator password.
+        # Allows Task Manager to relaunch itself as root without storing an administrator password.
         \(sudoersEscape(username)) ALL=(root) NOPASSWD: \(sudoersEscape(executablePath))
         """
 
@@ -128,7 +128,7 @@ enum RootLaunchError: LocalizedError {
         case .installFailed:
             "Could not install the root launch rule."
         case .relaunchFailed:
-            "Could not relaunch TaskMgmtMac as root."
+            "Could not relaunch Task Manager as root."
         }
     }
 }

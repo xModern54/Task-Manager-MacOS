@@ -28,7 +28,7 @@ private struct RootAccessRequiredView: View {
                         .taskManagerFont(28, weight: .semibold)
                         .foregroundStyle(WindowsTaskManagerTheme.textPrimary)
 
-                    Text("TaskMgmtMac needs root access to enable all application features. Install a local launch rule once, then the app will relaunch itself as root automatically.")
+                    Text("Task Manager needs root access to enable all application features. Install a local launch rule once, then the app will relaunch itself as root automatically.")
                         .taskManagerFont(14)
                         .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -36,7 +36,7 @@ private struct RootAccessRequiredView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("macOS will ask for your administrator password.", systemImage: "lock.shield")
-                    Label("The password is handled by macOS and is not stored by TaskMgmtMac.", systemImage: "key")
+                    Label("The password is handled by macOS and is not stored by Task Manager.", systemImage: "key")
                     Label("The rule only allows this exact app executable to relaunch as root.", systemImage: "checkmark.seal")
                 }
                 .taskManagerFont(13)

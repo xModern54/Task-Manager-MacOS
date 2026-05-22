@@ -14,7 +14,7 @@ enum LaunchServiceClipboardInfoBuilder {
         .joined(separator: " ")
 
         var lines: [String] = [
-            "TaskMgmtMac launchd service diagnostic context",
+            "Task Manager launchd service diagnostic context",
             "",
             "Suggested question:",
             "What is this macOS launchd service or agent, what software does it belong to, is it expected, and is it safe to disable, unload, or remove it?",
@@ -54,7 +54,7 @@ enum LaunchServiceClipboardInfoBuilder {
         } else if service.pid == nil {
             lines.append("No live PID is currently associated with this launchd item.")
         } else {
-            lines.append("A PID is listed, but TaskMgmtMac could not build a process context for it.")
+            lines.append("A PID is listed, but Task Manager could not build a process context for it.")
         }
 
         lines.append(contentsOf: [

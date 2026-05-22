@@ -184,7 +184,7 @@ final class TaskManagerViewModel: ObservableObject {
         }
 
         if process.pid == ProcessInfo.processInfo.processIdentifier {
-            return ProcessTerminationResult(isSuccess: false, message: "TaskMgmtMac cannot end itself.")
+            return ProcessTerminationResult(isSuccess: false, message: "Task Manager cannot end itself.")
         }
 
         let result = kill(pid_t(process.pid), SIGTERM)

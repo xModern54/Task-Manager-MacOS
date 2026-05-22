@@ -10,7 +10,7 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-app_dir="$repo_root/.build/debug/TaskMgmtMac.app"
+app_dir="$repo_root/.build/debug/Task Manager.app"
 executable="$repo_root/.build/debug/TaskMgmtMac"
 plist="$app_dir/Contents/Info.plist"
 remote_name="${GIT_REMOTE_NAME:-origin}"
@@ -69,7 +69,7 @@ echo "Finishing task: $commit_message"
 run_quietly "swift build" swift build
 
 echo "==> restart TaskMgmtMac"
-osascript -e 'tell application "TaskMgmtMac" to quit' 2>/dev/null || true
+osascript -e 'tell application "Task Manager" to quit' 2>/dev/null || true
 sleep 1
 pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$app_dir"
@@ -84,7 +84,8 @@ plutil -create xml1 "$plist" >/dev/null
 /usr/libexec/PlistBuddy \
     -c "Add :CFBundleExecutable string TaskMgmtMac" \
     -c "Add :CFBundleIdentifier string com.xmodern.TaskMgmtMac" \
-    -c "Add :CFBundleName string TaskMgmtMac" \
+    -c "Add :CFBundleName string Task Manager" \
+    -c "Add :CFBundleDisplayName string Task Manager" \
     -c "Add :CFBundlePackageType string APPL" \
     -c "Add :CFBundleVersion string 1" \
     -c "Add :CFBundleShortVersionString string 0.1" \

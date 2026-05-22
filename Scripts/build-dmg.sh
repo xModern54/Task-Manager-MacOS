@@ -4,18 +4,50 @@ set -euo pipefail
 ROOT_DIR="/Users/xmodern/Documents/TaskMgmtMac"
 cd "$ROOT_DIR"
 
-# 1. Compile Release App with full compiler optimizations (Universal arm64 & x86_64)
-echo "==> Rebuilding release app in production mode (Universal)..."
-swift build -c release --arch arm64 --arch x86_64
+# Detect native architecture and target specific build
+ARCH="$(uname -m)"
+if [ "$ARCH" = "arm64" ]; then
+    DMG_NAME="TaskMgmtMac-Darwin_aarch64-Shipping"
+    SWIFT_ARCH="arm64"
+    BINARY_SOURCE="$ROOT_DIR/.build/release/TaskMgmtMac"
+else
+    DMG_NAME="TaskMgmtMac-Darwin_amd64-Shipping"
+    SWIFT_ARCH="x86_64"
+    BINARY_SOURCE="$ROOT_DIR/.build/release/TaskMgmtMac"
+fi
+
+# Allow overriding arch via environment variables for building specific release targets
+if [ -n "${RELEASE_ARCH:-}" ]; then
+    if [ "$RELEASE_ARCH" = "arm64" ]; then
+        DMG_NAME="TaskMgmtMac-Darwin_aarch64-Shipping"
+        SWIFT_ARCH="arm64"
+        # When compiling non-native architectures or multiple, SwiftPM puts them in apple/Products/Release
+        BINARY_SOURCE="$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMac"
+    elif [ "$RELEASE_ARCH" = "x86_64" ]; then
+        DMG_NAME="TaskMgmtMac-Darwin_amd64-Shipping"
+        SWIFT_ARCH="x86_64"
+        BINARY_SOURCE="$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMac"
+    fi
+fi
+
+# 1. Compile Release App with full compiler optimizations for target architecture
+echo "==> Rebuilding release app in production mode ($SWIFT_ARCH)..."
+if [ -n "${RELEASE_ARCH:-}" ]; then
+    # Cross-compiling or explicit arch build
+    swift build -c release --arch "$SWIFT_ARCH"
+else
+    # Standard native build
+    swift build -c release
+fi
 
 # Prepare release bundle structure
-RELEASE_APP_DIR="$ROOT_DIR/TaskMgmtMac.app"
+RELEASE_APP_DIR="$ROOT_DIR/Task Manager.app"
 rm -rf "$RELEASE_APP_DIR"
 mkdir -p "$RELEASE_APP_DIR/Contents/MacOS"
 mkdir -p "$RELEASE_APP_DIR/Contents/Resources"
 
 echo "==> Copying binary and assets..."
-cp "$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMac" "$RELEASE_APP_DIR/Contents/MacOS/TaskMgmtMac"
+cp "$BINARY_SOURCE" "$RELEASE_APP_DIR/Contents/MacOS/TaskMgmtMac"
 
 if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
   cp "$ROOT_DIR/Resources/AppIcon.icns" "$RELEASE_APP_DIR/Contents/Resources/AppIcon.icns"
@@ -26,10 +58,11 @@ plutil -create xml1 "$PLIST"
 /usr/libexec/PlistBuddy \
   -c "Add :CFBundleExecutable string TaskMgmtMac" \
   -c "Add :CFBundleIdentifier string com.xmodern.TaskMgmtMac" \
-  -c "Add :CFBundleName string TaskMgmtMac" \
+  -c "Add :CFBundleName string Task Manager" \
+  -c "Add :CFBundleDisplayName string Task Manager" \
   -c "Add :CFBundlePackageType string APPL" \
   -c "Add :CFBundleVersion string 1" \
-  -c "Add :CFBundleShortVersionString string 1.0" \
+  -c "Add :CFBundleShortVersionString string 1.1" \
   -c "Add :LSMinimumSystemVersion string 14.0" \
   -c "Add :CFBundleIconFile string AppIcon" \
   "$PLIST"
@@ -50,7 +83,6 @@ codesign --force --options runtime --sign "$SIGN_IDENTITY" "$RELEASE_APP_DIR"
 
 # 2. Package into premium custom DMG
 DMG_VOLNAME="TaskMgmtMac"
-DMG_NAME="TaskMgmtMac-Universal-Shipping"
 FINAL_DMG="$ROOT_DIR/${DMG_NAME}.dmg"
 TEMP_DMG="/tmp/${DMG_NAME}-temp.dmg"
 MOUNT_DIR="/Volumes/$DMG_VOLNAME"
@@ -92,7 +124,7 @@ tell application "Finder"
         set theViewOptions to the icon view options of container window
         set icon size of theViewOptions to 128
         set arrangement of theViewOptions to not arranged
-        set position of item "TaskMgmtMac.app" of container window to {160, 160}
+        set position of item "Task Manager.app" of container window to {160, 160}
         set position of item "Applications" of container window to {440, 160}
         update items of container window
         close

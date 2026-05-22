@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/.build/debug/TaskMgmtMac.app"
+APP_DIR="$ROOT_DIR/.build/debug/Task Manager.app"
 EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMac"
 PLIST="$APP_DIR/Contents/Info.plist"
 
@@ -34,7 +34,7 @@ codesign_identity() {
 cd "$ROOT_DIR"
 swift build
 
-osascript -e 'tell application "TaskMgmtMac" to quit' 2>/dev/null || true
+osascript -e 'tell application "Task Manager" to quit' 2>/dev/null || true
 sleep 1
 pkill -x TaskMgmtMac 2>/dev/null || true
 
@@ -50,7 +50,8 @@ plutil -create xml1 "$PLIST"
 /usr/libexec/PlistBuddy \
   -c "Add :CFBundleExecutable string TaskMgmtMac" \
   -c "Add :CFBundleIdentifier string com.xmodern.TaskMgmtMac" \
-  -c "Add :CFBundleName string TaskMgmtMac" \
+  -c "Add :CFBundleName string Task Manager" \
+  -c "Add :CFBundleDisplayName string Task Manager" \
   -c "Add :CFBundlePackageType string APPL" \
   -c "Add :CFBundleVersion string 1" \
   -c "Add :CFBundleShortVersionString string 0.1" \
