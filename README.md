@@ -1,124 +1,129 @@
-# TaskMgmtMac
+<p align="center">
+  <img src="Resources/AppIcon.png" alt="TaskMgmtMac Icon" width="128" height="128">
+</p>
 
-![Swift](https://img.shields.io/badge/Swift-6-orange)
-![macOS](https://img.shields.io/badge/macOS-14%2B-blue)
-![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-purple)
-![Status](https://img.shields.io/badge/status-in%20progress-lightgrey)
+<h1 align="center">TaskMgmtMac</h1>
 
-TaskMgmtMac is a native macOS app inspired by the Windows Task Manager experience.
-It keeps the familiar task-manager shape, but uses SwiftUI, native Apple frameworks,
-and real macOS system data where practical.
+<p align="center">
+  <strong>A high-fidelity, native macOS Task Manager inspired by the classic Windows Task Manager experience.</strong>
+  <br>
+  <em>Written in Swift & SwiftUI using native Apple frameworks, low-level APIs, and real-time macOS system data.</em>
+</p>
 
-The project is intentionally small, modular, and direct: system providers collect
-metrics, view models keep live history, and SwiftUI views focus on presentation.
+<p align="center">
+  <a href="https://swift.org"><img src="https://img.shields.io/badge/Swift-6.0-orange.svg?style=flat-square" alt="Swift 6.0"></a>
+  <a href="https://developer.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-14.0%2B-blue.svg?style=flat-square" alt="macOS 14+"></a>
+  <a href="https://developer.apple.com/xcode/swiftui/"><img src="https://img.shields.io/badge/UI-SwiftUI-blueviolet.svg?style=flat-square" alt="SwiftUI"></a>
+  <a href="https://github.com/xModern54/Task-Manager-MacOS/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License MIT"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Build-Passing-brightgreen.svg?style=flat-square" alt="Build Passing"></a>
+</p>
 
-## Preview
+---
 
-The app currently recreates the core Windows Task Manager shell:
+## 📖 Overview
 
-- custom title bar and search field
-- compact sidebar with Processes and Devices
-- process table with live CPU and memory data
-- performance-style Devices page
-- live CPU, memory, and GPU summary graphs
+**TaskMgmtMac** is a lightweight, highly-optimized macOS system monitor that recreates the familiar shape, responsiveness, and features of the Windows Task Manager. 
 
-Design references live in [`Refs/`](./Refs/).
+Unlike typical monitors that rely on heavy Electron wrappers or basic shell commands, TaskMgmtMac communicates directly with the macOS kernel, Mach microkernel, Metal, and IOKit. It features a modern modular architecture, optimized actors for background calculations, and a secure root relaunch gate for privileged tasks.
 
-## Current Features
+---
 
-### Processes
+## ✨ Features
 
-- Real process list from native macOS process APIs
-- Stable PID-based row identity for smooth SwiftUI updates
-- Real resident memory per process
-- Real sampled CPU usage per process
-- Process icon lookup with caching
-- Filtering by process name or PID
-- Sorting by CPU, Memory, and Disk columns
+### 🖥️ 1. Processes & Diagnostics
+* **Live Process Table**: Lists all active processes with stable PID-based row identity, preventing SwiftUI diff lag.
+* **Smart Grouping**: Automatically groups parent and auxiliary processes (e.g., Safari WebKit helper apps, Electron subprocesses).
+* **Precise Metric Sorting**: Sort dynamically by CPU, Memory, and Disk activity.
+* **Process Termination**: Safely send `SIGTERM` to single processes or entire process groups with name confirmation.
+* **Run New Task**: Small command dialog running execution pipelines via `/bin/zsh -lc` with stdout/stderr capturing.
+* **Smart Icon Cache**: Instantly retrieves and caches high-fidelity application icons via `NSRunningApplication` and `NSWorkspace`.
 
-### Devices / Performance
+### 📈 2. Performance & Devices
+* **CPU & Memory**: Real-time graphs showing historical utilization, active VM pages, compressed memory, and hardware specs.
+* **Extended Sensors**: Collects die temperatures (via `IOHID` temperature readers) and system package power (E-core/P-core frequencies, package power in Watts via `powermetrics`).
+* **GPU & NPU**: Real-time GPU usage from `IORegistry` performance counters, Apple Silicon Unified Memory telemetry, and Apple Silicon NPU (ANE) activity.
+* **Network & Disk**: Deep packet metrics, interface speed, and MacBook internal SSD read/write monitoring.
+* **Battery**: Live status and power source tracking (visible only when an internal battery is present).
 
-- Live CPU utilization history
-- Live memory usage based on Mach VM statistics
-- Live GPU utilization from IORegistry performance counters
-- Real GPU name and unified-memory status through Metal
-- Windows Task Manager inspired graph styling
-- Mock placeholders for disk, network, and some device details
+### 🚀 3. Startup & Services Management
+* **Startup Apps**: Manage launch configurations through Background Task Management APIs, LaunchAgent plists, and `SystemEvents` login items.
+* **Services**: View, start, and stop macOS background services and `launchd` systems directly.
 
-## Architecture
+---
+
+## 🛠️ Tech Stack & Low-Level APIs
+
+To ensure low CPU overhead (refreshing every `0.5s`), TaskMgmtMac accesses native macOS interfaces:
+
+| Telemetry | Low-Level System API |
+| :--- | :--- |
+| **Process PIDs** | `proc_listpids` & `proc_pidinfo` |
+| **CPU Time Tracking** | `proc_taskinfo` & `mach_timebase_info` |
+| **System Memory** | Mach VM statistics (`host_statistics64`) |
+| **GPU Telemetry** | Metal API & `IORegistryEntry` |
+| **Thermal Sensors** | `IOHIDEventSystemClient` (pACC / eACC / PMU sensors) |
+| **Power Telemetry** | `/usr/bin/powermetrics` (background CPU/GPU/ANE telemetry) |
+| **App Icons** | `NSRunningApplication` & `NSWorkspace.icon(forFile:)` |
+
+---
+
+## 📐 Architecture
+
+The codebase is organized in a modular, clean, and testable directory structure:
 
 ```text
 Sources/TaskMgmtMac
-├── Models
-├── Services
-│   ├── Mocks
-│   ├── SystemProcesses
-│   └── SystemResources
-├── Support
-├── ViewModels
-└── Views
+├── Models             # Data representation models (System metrics, processes)
+├── Services           # Low-level system data providers & monitor actors
+│   ├── LaunchServices # Services list & control (launchctl wrapper)
+│   ├── StartupItems   # Plist loaders & Login Item resolvers
+│   ├── SystemProcesses# Process details & native telemetry builders
+│   └── SystemResources# Kernel/Mach memory, GPU, powermetrics & IOHID temp readers
+├── ViewModels         # Main view models holding dynamic charts and snapshots
+├── Support            # Helper scripts, settings, theme configurators & Root Gate
+└── Views              # Native SwiftUI views and reusable performance graph modules
 ```
 
-The code separates UI, models, providers, and support utilities so individual
-metrics can be replaced or improved without turning the app into one large file.
+---
 
-## System Data
+## 🛡️ Root Launch Gate & Security
 
-TaskMgmtMac uses native macOS APIs where possible:
+Some system telemetry (like `powermetrics` and ending processes owned by other users) requires `root` privileges. 
 
-- `proc_listpids`, `proc_pidinfo`, `PROC_PIDTASKINFO`, and `proc_pidpath` for process data
-- Mach VM statistics for system memory
-- Mach absolute time conversion for process CPU sampling
-- `NSRunningApplication` and `NSWorkspace` for process icons
-- Metal for GPU identity
-- IORegistry performance counters for live GPU utilization
+TaskMgmtMac features a secure **Root Launch Gate**:
+* On normal user launch, `RootLaunchGate` checks whether a local sudoers rule exists.
+* If present, it relaunches the exact current app executable as `root` without prompting the user for an administrator password.
+* The rule is installed at `/etc/sudoers.d/taskmgmtmac-root-launch` and **only** allows the exact TaskMgmtMac executable path with `NOPASSWD`. 
+* *It does not create a generic root wrapper or a shell backdoor.*
 
-GPU utilization is currently best-effort because Apple does not expose a complete
-public Task Manager style GPU API for all live counters.
+---
 
-## Requirements
+## 🚀 Building & Running
 
-- macOS 14 or newer
-- Swift toolchain with Swift Package Manager
+### Prerequisites
+* macOS 14.0 or newer
+* Xcode 15+ / Swift 6.0 Toolchain
 
-## Build
-
+### 1. Build the Binary
 ```bash
-swift build
+swift build -c release
 ```
 
-## Run
-
-For local development, use the debug app wrapper:
-
+### 2. Package and Install
+You can use the provided development scripts for fast builds:
 ```bash
+# Build a debug executable and launch the macOS app bundle wrapper
 ./Scripts/run-debug-app.sh
 ```
 
-The script builds the Swift package, wraps the executable in a temporary `.app`,
-closes the previous debug instance, and opens the new one.
-
-## Development Workflow
-
-Commit and push the current work with:
-
+### 3. Run Release Bundle
+The fully optimized release package is compiled and available at the root of the project:
 ```bash
-./Scripts/commit-and-push.sh "Short commit message"
+open TaskMgmtMac.app
 ```
 
-The script stages changed files, creates a commit, waits briefly, and pushes the
-current branch to the configured remote.
+---
 
-## Roadmap
+## 📜 License
 
-- Real disk activity provider
-- Real network activity provider
-- More complete GPU memory reporting where available
-- Better device-specific Performance page details
-- Command bar actions such as Run new task and End task
-- More Windows Task Manager sections when the core pages are solid
-
-## Notes
-
-This is not an Xcode project yet. It is a Swift Package executable, which keeps
-the build simple while the interface and providers are being recreated.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
