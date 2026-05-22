@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+unset GITHUB_TOKEN
 
 if [ "$#" -eq 0 ]; then
     echo "Usage: $0 \"commit message\""
