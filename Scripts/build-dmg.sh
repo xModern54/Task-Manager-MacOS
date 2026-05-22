@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="/Users/xmodern/Documents/TaskMgmtMac"
 cd "$ROOT_DIR"
 
-# 1. Compile Release App with full compiler optimizations
-echo "==> Rebuilding release app in production mode (Release)..."
-swift build -c release
+# 1. Compile Release App with full compiler optimizations (Universal arm64 & x86_64)
+echo "==> Rebuilding release app in production mode (Universal)..."
+swift build -c release --arch arm64 --arch x86_64
 
 # Prepare release bundle structure
 RELEASE_APP_DIR="$ROOT_DIR/TaskMgmtMac.app"
@@ -15,7 +15,7 @@ mkdir -p "$RELEASE_APP_DIR/Contents/MacOS"
 mkdir -p "$RELEASE_APP_DIR/Contents/Resources"
 
 echo "==> Copying binary and assets..."
-cp "$ROOT_DIR/.build/release/TaskMgmtMac" "$RELEASE_APP_DIR/Contents/MacOS/TaskMgmtMac"
+cp "$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMac" "$RELEASE_APP_DIR/Contents/MacOS/TaskMgmtMac"
 
 if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
   cp "$ROOT_DIR/Resources/AppIcon.icns" "$RELEASE_APP_DIR/Contents/Resources/AppIcon.icns"
@@ -50,7 +50,7 @@ codesign --force --options runtime --sign "$SIGN_IDENTITY" "$RELEASE_APP_DIR"
 
 # 2. Package into premium custom DMG
 DMG_VOLNAME="TaskMgmtMac"
-DMG_NAME="TaskMgmtMac-aarch64-Shipping"
+DMG_NAME="TaskMgmtMac-Universal-Shipping"
 FINAL_DMG="$ROOT_DIR/${DMG_NAME}.dmg"
 TEMP_DMG="/tmp/${DMG_NAME}-temp.dmg"
 MOUNT_DIR="/Volumes/$DMG_VOLNAME"
