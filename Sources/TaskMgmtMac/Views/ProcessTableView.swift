@@ -18,6 +18,7 @@ struct ProcessTableView: View {
     let onContextRevealFile: (ProcessTableRow) -> Void
     let onContextSearchOnline: (ProcessTableRow) -> Void
     let onContextCopyInfo: (ProcessTableRow) -> Void
+    let onSingleProcessDoubleClick: (ProcessTableRow) -> Void
     let onFocusScrollConsumed: (ProcessMetric.ID) -> Void
     let onScrollActivity: (Bool) -> Void
     @State private var displayedRows: [ProcessTableRow] = []
@@ -52,6 +53,10 @@ struct ProcessTableView: View {
                             } else {
                                 onSelectProcess(row.metric.id)
                             }
+                        }
+                        .onTapGesture(count: 2) {
+                            guard row.kind == .process else { return }
+                            onSingleProcessDoubleClick(row)
                         }
                     }
                 }

@@ -8,8 +8,19 @@ struct RootLaunchGate<Content: View>: View {
         if RootLaunchManager.isRunningAsRoot {
             content
                 .onAppear {
-                    // Force the app to activate and come to the foreground when running as root
-                    NSApp.activate(ignoringOtherApps: true)
+                    // 1. Explicitly promote the process to a regular GUI application
+                    NSApp.setActivationPolicy(.regular)
+                    
+                    // 2. Run a robust activation loop over the first 1.5 seconds of startup
+                    // to ensure focus is acquired as soon as the WindowServer completes transitions.
+                    for delay in [0.1, 0.3, 0.6, 1.0, 1.5] {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            NSApp.activate(ignoringOtherApps: true)
+                            NSApplication.shared.windows.forEach { window in
+                                window.makeKeyAndOrderFront(nil)
+                            }
+                        }
+                    }
                 }
         } else {
             RootAccessRequiredView()
@@ -107,7 +118,7 @@ private struct RootAccessRequiredView: View {
         if await RootLaunchManager.canRelaunchWithoutPassword() {
             do {
                 try RootLaunchManager.relaunchAsRoot()
-                RootLaunchManager.terminateCurrentProcess()
+                await transferFocusAndExit()
             } catch {
                 statusText = "Automatic relaunch is configured, but the app could not start as root."
                 errorText = error.localizedDescription
@@ -126,12 +137,59 @@ private struct RootAccessRequiredView: View {
             try await RootLaunchManager.installRootLaunchRule()
             statusText = "Relaunching as root..."
             try RootLaunchManager.relaunchAsRoot()
-            RootLaunchManager.terminateCurrentProcess()
+            await transferFocusAndExit()
         } catch {
             errorText = error.localizedDescription
             statusText = "Root launch is not configured yet."
             isInstalling = false
         }
+    }
+
+    private func transferFocusAndExit() async {
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        var foundApp: NSRunningApplication? = nil
+        
+        // Poll for up to 5 seconds (50 * 100ms) for the root process to appear
+        for _ in 0..<50 {
+            let apps = NSWorkspace.shared.runningApplications
+            for app in apps {
+                if app.processIdentifier != currentPID {
+                    let isMatch = app.bundleIdentifier == "com.xmodern.TaskMgmtMac" ||
+                                  app.executableURL?.lastPathComponent == "TaskMgmtMac" ||
+                                  app.localizedName == "Task Manager" ||
+                                  app.localizedName == "TaskMgmtMac"
+                    if isMatch {
+                        foundApp = app
+                        break
+                    }
+                }
+            }
+            if foundApp != nil {
+                break
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+        }
+        
+        if let targetApp = foundApp {
+            // 1. Native activation
+            targetApp.activate()
+            
+            // 2. Active AppleScript focus transfer to ensure it gets absolute priority on macOS Sonoma/Sequoia
+            let pid = targetApp.processIdentifier
+            let appleScript = "tell application \"System Events\" to set frontmost of first process whose unix id is \(pid) to true"
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", appleScript]
+            try? process.run()
+            
+            // Wait briefly to allow the WindowServer to perform the transition smoothly
+            try? await Task.sleep(nanoseconds: 250_000_000) // 250ms
+        } else {
+            // Fallback wait if we didn't find it immediately
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        }
+        
+        RootLaunchManager.terminateCurrentProcess()
     }
 }
 

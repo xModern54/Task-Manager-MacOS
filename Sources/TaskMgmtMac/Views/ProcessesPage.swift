@@ -40,6 +40,7 @@ struct ProcessesPage: View {
                     onContextRevealFile: revealFile(for:),
                     onContextSearchOnline: searchOnline(for:),
                     onContextCopyInfo: copyInfo(for:),
+                    onSingleProcessDoubleClick: openDetails(for:),
                     onFocusScrollConsumed: viewModel.consumeProcessFocusScrollTarget(_:),
                     onScrollActivity: viewModel.setProcessTableScrolling(_:)
                 )
