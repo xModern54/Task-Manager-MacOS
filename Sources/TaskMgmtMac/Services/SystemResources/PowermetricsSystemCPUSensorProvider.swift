@@ -150,7 +150,7 @@ private enum PowermetricsCPUSensorError: LocalizedError {
     }
 }
 
-private enum PowermetricsCPUSensorParser {
+enum PowermetricsCPUSensorParser {
     static func snapshot(from output: String) -> SystemCPUSensorSnapshot {
         let lines = output.components(separatedBy: .newlines)
         let frequencies = frequencyReadings(from: lines)
@@ -177,33 +177,25 @@ private enum PowermetricsCPUSensorParser {
 
         for line in lines {
             let lowercasedLine = line.lowercased()
+            let lineCluster = clusterKind(from: lowercasedLine)
 
-            if lowercasedLine.hasPrefix("e-cluster") {
-                currentCluster = .efficiency
-            } else if lowercasedLine.hasPrefix("p-cluster") {
-                currentCluster = .performance
+            if let lineCluster {
+                currentCluster = lineCluster
             }
 
-            guard lowercasedLine.contains("frequency:"),
+            guard lowercasedLine.contains("frequency"),
                   let value = firstFrequencyMHz(in: line),
-                  value > 0 else {
+                  value >= 0 else {
                 continue
             }
 
             allValues.append(value)
 
-            if lowercasedLine.hasPrefix("p-cluster") {
-                performanceValues.append(value)
-            } else if lowercasedLine.hasPrefix("e-cluster") {
-                efficiencyValues.append(value)
+            if let lineCluster {
+                append(value, to: lineCluster, performanceValues: &performanceValues, efficiencyValues: &efficiencyValues)
             } else if lowercasedLine.hasPrefix("cpu ") {
-                switch currentCluster {
-                case .performance:
-                    performanceValues.append(value)
-                case .efficiency:
-                    efficiencyValues.append(value)
-                case nil:
-                    break
+                if let currentCluster {
+                    append(value, to: currentCluster, performanceValues: &performanceValues, efficiencyValues: &efficiencyValues)
                 }
             }
         }
@@ -213,6 +205,42 @@ private enum PowermetricsCPUSensorParser {
             performance: average(performanceValues),
             efficiency: average(efficiencyValues)
         )
+    }
+
+    private static func clusterKind(from lowercasedLine: String) -> CPUCluster? {
+        let line = lowercasedLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clusterName = line.prefix { character in
+            character != ":" && character != "(" && !character.isWhitespace
+        }
+
+        // Apple Silicon generations have used E/P-Cluster, numbered variants
+        // such as P0-Cluster, and the newer S/Super naming for fast cores.
+        let efficiencyPattern = #"^(?:e[0-9]*-?cluster|efficiency(?:-?cluster)?)$"#
+        let performancePattern = #"^(?:p[0-9]*-?cluster|s[0-9]*-?cluster|performance(?:-?cluster)?|super(?:-?cluster)?)$"#
+
+        if clusterName.range(of: efficiencyPattern, options: .regularExpression) != nil {
+            return .efficiency
+        }
+
+        if clusterName.range(of: performancePattern, options: .regularExpression) != nil {
+            return .performance
+        }
+
+        return nil
+    }
+
+    private static func append(
+        _ value: Double,
+        to cluster: CPUCluster,
+        performanceValues: inout [Double],
+        efficiencyValues: inout [Double]
+    ) {
+        switch cluster {
+        case .performance:
+            performanceValues.append(value)
+        case .efficiency:
+            efficiencyValues.append(value)
+        }
     }
 
     private static func firstFrequencyMHz(in line: String) -> Double? {

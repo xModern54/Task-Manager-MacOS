@@ -14,6 +14,11 @@ let package = Package(
         .executableTarget(
             name: "TaskMgmtMac",
             path: "Sources/TaskMgmtMac"
+        ),
+        .testTarget(
+            name: "TaskMgmtMacTests",
+            dependencies: ["TaskMgmtMac"],
+            path: "Tests/TaskMgmtMacTests"
         )
     ]
 )

@@ -78,10 +78,9 @@ actor IOKitSystemDiskInfoProvider: SystemDiskInfoProviding {
 
     private static func blockStorageStats() -> BlockStorageStats? {
         var iterator: io_iterator_t = 0
-        let result = IORegistryCreateIterator(
+        let result = IOServiceGetMatchingServices(
             kIOMainPortDefault,
-            kIOServicePlane,
-            IOOptionBits(kIORegistryIterateRecursively),
+            IOServiceMatching("IOBlockStorageDriver"),
             &iterator
         )
 
@@ -93,13 +92,14 @@ actor IOKitSystemDiskInfoProvider: SystemDiskInfoProviding {
             IOObjectRelease(iterator)
         }
 
+        var bestCandidate: BlockStorageCandidate?
+
         while case let entry = IOIteratorNext(iterator), entry != 0 {
             defer {
                 IOObjectRelease(entry)
             }
 
-            guard className(for: entry).localizedCaseInsensitiveContains("IOBlockStorageDriver"),
-                  let statistics = IORegistryEntryCreateCFProperty(
+            guard let statistics = IORegistryEntryCreateCFProperty(
                     entry,
                     "Statistics" as CFString,
                     kCFAllocatorDefault,
@@ -108,7 +108,7 @@ actor IOKitSystemDiskInfoProvider: SystemDiskInfoProviding {
                 continue
             }
 
-            return BlockStorageStats(
+            let stats = BlockStorageStats(
                 timestampNanoseconds: DispatchTime.now().uptimeNanoseconds,
                 readBytes: numericValue(statistics["Bytes (Read)"]) ?? 0,
                 writeBytes: numericValue(statistics["Bytes (Write)"]) ?? 0,
@@ -117,9 +117,76 @@ actor IOKitSystemDiskInfoProvider: SystemDiskInfoProviding {
                 readTimeNanoseconds: numericValue(statistics["Total Time (Read)"]) ?? 0,
                 writeTimeNanoseconds: numericValue(statistics["Total Time (Write)"]) ?? 0
             )
+
+            let media = wholeMediaMetadata(for: entry)
+            let candidate = BlockStorageCandidate(
+                stats: stats,
+                rank: DiskStatsSelectionRank(
+                    isPrimaryDisk: media?.bsdName == "disk0",
+                    isInternalWholeDisk: media?.isRemovable == false,
+                    hasWholeMedia: media != nil,
+                    operationCount: stats.totalOperations,
+                    byteCount: sumClamped(stats.readBytes, stats.writeBytes)
+                )
+            )
+
+            if let currentBest = bestCandidate, currentBest.rank >= candidate.rank {
+                continue
+            }
+
+            bestCandidate = candidate
+        }
+
+        return bestCandidate?.stats
+    }
+
+    private static func wholeMediaMetadata(for driver: io_registry_entry_t) -> WholeMediaMetadata? {
+        var iterator: io_iterator_t = 0
+        guard IORegistryEntryGetChildIterator(driver, kIOServicePlane, &iterator) == KERN_SUCCESS else {
+            return nil
+        }
+
+        defer {
+            IOObjectRelease(iterator)
+        }
+
+        while case let child = IOIteratorNext(iterator), child != 0 {
+            defer {
+                IOObjectRelease(child)
+            }
+
+            guard className(for: child) == "IOMedia",
+                  booleanValue(property("Whole", from: child)) == true else {
+                continue
+            }
+
+            return WholeMediaMetadata(
+                bsdName: property("BSD Name", from: child) as? String,
+                isRemovable: booleanValue(property("Removable", from: child))
+            )
         }
 
         return nil
+    }
+
+    private static func property(_ key: String, from entry: io_registry_entry_t) -> Any? {
+        IORegistryEntryCreateCFProperty(
+            entry,
+            key as CFString,
+            kCFAllocatorDefault,
+            0
+        )?.takeRetainedValue()
+    }
+
+    private static func booleanValue(_ value: Any?) -> Bool? {
+        switch value {
+        case let value as Bool:
+            value
+        case let value as NSNumber:
+            value.boolValue
+        default:
+            nil
+        }
     }
 
     private static func diskDetails() -> DiskDetails {
@@ -241,6 +308,35 @@ private struct BlockStorageStats: Sendable {
     var totalTimeNanoseconds: UInt64 {
         IOKitSystemDiskInfoProvider.sumClamped(readTimeNanoseconds, writeTimeNanoseconds)
     }
+}
+
+struct DiskStatsSelectionRank: Comparable, Sendable {
+    let isPrimaryDisk: Bool
+    let isInternalWholeDisk: Bool
+    let hasWholeMedia: Bool
+    let operationCount: UInt64
+    let byteCount: UInt64
+
+    static func < (lhs: DiskStatsSelectionRank, rhs: DiskStatsSelectionRank) -> Bool {
+        let lhsFlags = (lhs.isPrimaryDisk ? 1 : 0, lhs.isInternalWholeDisk ? 1 : 0, lhs.hasWholeMedia ? 1 : 0)
+        let rhsFlags = (rhs.isPrimaryDisk ? 1 : 0, rhs.isInternalWholeDisk ? 1 : 0, rhs.hasWholeMedia ? 1 : 0)
+
+        if lhsFlags.0 != rhsFlags.0 { return lhsFlags.0 < rhsFlags.0 }
+        if lhsFlags.1 != rhsFlags.1 { return lhsFlags.1 < rhsFlags.1 }
+        if lhsFlags.2 != rhsFlags.2 { return lhsFlags.2 < rhsFlags.2 }
+        if lhs.operationCount != rhs.operationCount { return lhs.operationCount < rhs.operationCount }
+        return lhs.byteCount < rhs.byteCount
+    }
+}
+
+private struct BlockStorageCandidate {
+    let stats: BlockStorageStats
+    let rank: DiskStatsSelectionRank
+}
+
+private struct WholeMediaMetadata {
+    let bsdName: String?
+    let isRemovable: Bool?
 }
 
 private struct DiskLiveMetrics: Sendable {
