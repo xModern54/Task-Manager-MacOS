@@ -117,7 +117,7 @@ private struct RootAccessRequiredView: View {
 
         if await RootLaunchManager.canRelaunchWithoutPassword() {
             do {
-                try RootLaunchManager.relaunchAsRoot()
+                try await RootLaunchManager.relaunchAsRoot()
                 await transferFocusAndExit()
             } catch {
                 statusText = "Automatic relaunch is configured, but the app could not start as root."
@@ -136,7 +136,7 @@ private struct RootAccessRequiredView: View {
         do {
             try await RootLaunchManager.installRootLaunchRule()
             statusText = "Relaunching as root..."
-            try RootLaunchManager.relaunchAsRoot()
+            try await RootLaunchManager.relaunchAsRoot()
             await transferFocusAndExit()
         } catch {
             errorText = error.localizedDescription

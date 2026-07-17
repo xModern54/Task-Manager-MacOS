@@ -30,13 +30,28 @@ enum RootLaunchManager {
         ) == 0
     }
 
-    static func relaunchAsRoot() throws {
+    static func relaunchAsRoot() async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
         process.arguments = ["-n", executablePath]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        try process.run()
+
+        do {
+            try process.run()
+        } catch {
+            throw RootLaunchError.relaunchFailed(error.localizedDescription)
+        }
+
+        // sudo remains alive while the launched app is running. An early exit
+        // means the privileged app failed during startup, so keep this instance
+        // open and report the failure instead of making the app appear to vanish.
+        try? await Task.sleep(for: .milliseconds(750))
+
+        guard process.isRunning else {
+            process.waitUntilExit()
+            throw RootLaunchError.relaunchFailed("sudo exited with status \(process.terminationStatus)")
+        }
     }
 
     static func installRootLaunchRule() async throws {
@@ -121,14 +136,18 @@ enum RootLaunchManager {
 
 enum RootLaunchError: LocalizedError {
     case installFailed
-    case relaunchFailed
+    case relaunchFailed(String?)
 
     var errorDescription: String? {
         switch self {
         case .installFailed:
             "Could not install the root launch rule."
-        case .relaunchFailed:
-            "Could not relaunch Task Manager as root."
+        case .relaunchFailed(let details):
+            if let details, !details.isEmpty {
+                "Could not relaunch Task Manager as root: \(details)"
+            } else {
+                "Could not relaunch Task Manager as root."
+            }
         }
     }
 }

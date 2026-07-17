@@ -10,9 +10,6 @@ struct TaskMgmtMacApp: App {
 
     init() {
         RootLaunchManager.exitIfHandlingProbeArgument()
-        if RootLaunchManager.isRunningAsRoot {
-            NSApp.setActivationPolicy(.regular)
-        }
     }
 
     var body: some Scene {
