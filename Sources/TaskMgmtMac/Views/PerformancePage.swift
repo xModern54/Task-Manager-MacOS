@@ -19,6 +19,7 @@ struct PerformancePage: View {
     @Binding var selectedDeviceID: PerformanceDevice.ID
 
     @State private var processorName: String?
+    @State private var performanceCoreSpeedLabel = "P-core speed"
     @State private var uptimeSeconds: Int?
     @State private var didLoadProcessorName = false
 
@@ -31,6 +32,7 @@ struct PerformancePage: View {
                     from: summary,
                     samples: cpuHistory,
                     sensorSnapshot: cpuSensorSnapshot,
+                    performanceCoreSpeedLabel: performanceCoreSpeedLabel,
                     uptimeText: uptimeText
                 )
             } else if device.kind == .memory {
@@ -134,6 +136,7 @@ struct PerformancePage: View {
             guard !didLoadProcessorName else { return }
             didLoadProcessorName = true
             processorName = cpuInfoProvider.processorName()
+            performanceCoreSpeedLabel = cpuInfoProvider.performanceCoreSpeedLabel()
             if let systemBootDate = cpuInfoProvider.systemBootDate() {
                 uptimeSeconds = max(Int(Date().timeIntervalSince(systemBootDate)), 0)
             }
@@ -490,6 +493,7 @@ private extension PerformanceDevice {
         from summary: ProcessSummary,
         samples: [Double],
         sensorSnapshot: SystemCPUSensorSnapshot,
+        performanceCoreSpeedLabel: String,
         uptimeText: String
     ) -> PerformanceDevice {
         guard kind == .cpu else { return self }
@@ -499,7 +503,7 @@ private extension PerformanceDevice {
             PerformanceStat(label: "Processes", value: "\(summary.processCount)"),
             PerformanceStat(label: "Threads", value: "\(summary.threadCount)"),
             PerformanceStat(label: "Up time", value: uptimeText),
-            PerformanceStat(label: "P-core speed", value: sensorSnapshot.performanceFrequencyMHz.map { formatCPUFrequency($0) } ?? "--"),
+            PerformanceStat(label: performanceCoreSpeedLabel, value: sensorSnapshot.performanceFrequencyMHz.map { formatCPUFrequency($0) } ?? "--"),
             PerformanceStat(label: "E-core speed", value: sensorSnapshot.efficiencyFrequencyMHz.map { formatCPUFrequency($0) } ?? "--"),
             PerformanceStat(label: "Temperature", value: formattedTemperature(sensorSnapshot.temperatureCelsius)),
             PerformanceStat(label: "Thermal pressure", value: sensorSnapshot.thermalPressure),

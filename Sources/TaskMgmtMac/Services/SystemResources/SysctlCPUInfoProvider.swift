@@ -18,6 +18,18 @@ struct SysctlCPUInfoProvider: SystemCPUInfoProviding {
         return String(format: "%.2f GHz", gigahertz)
     }
 
+    func performanceCoreSpeedLabel() -> String {
+        Self.performanceCoreSpeedLabel(for: stringValue(for: "hw.perflevel0.name"))
+    }
+
+    static func performanceCoreSpeedLabel(for performanceLevelName: String?) -> String {
+        guard performanceLevelName?.localizedCaseInsensitiveContains("super") == true else {
+            return "P-core speed"
+        }
+
+        return "S-core speed"
+    }
+
     func systemBootDate() -> Date? {
         var bootTime = timeval()
         var size = MemoryLayout<timeval>.stride

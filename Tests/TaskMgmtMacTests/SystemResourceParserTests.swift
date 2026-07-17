@@ -1,6 +1,13 @@
 import Testing
 @testable import TaskMgmtMac
 
+@Test func labelsSuperPerformanceLevelAsSCore() {
+    #expect(SysctlCPUInfoProvider.performanceCoreSpeedLabel(for: "Super") == "S-core speed")
+    #expect(SysctlCPUInfoProvider.performanceCoreSpeedLabel(for: "super") == "S-core speed")
+    #expect(SysctlCPUInfoProvider.performanceCoreSpeedLabel(for: "Performance") == "P-core speed")
+    #expect(SysctlCPUInfoProvider.performanceCoreSpeedLabel(for: nil) == "P-core speed")
+}
+
 @Test func parsesLegacyPerformanceAndEfficiencyClusterFrequencies() {
     let output = """
     E-Cluster HW active frequency: 1512 MHz
