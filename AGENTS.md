@@ -118,7 +118,7 @@ Network per-process and GPU per-process metrics are expected to be harder than C
 
 The repo uses `Scripts/run-debug-app.sh` to build a debug executable, wrap it in a `.app`, kill the previous app instance, and open the new app.
 
-The debug app wrapper is created under `.build/debug/TaskMgmtMac.app`.
+The debug app wrapper is assembled under `.build/debug`, then moved to `Task Manager.app` in the repository root.
 
 Because the app may be running as root, restart scripts should first ask the app to quit through Apple Events and then fall back to killing remaining `TaskMgmtMac` processes.
 

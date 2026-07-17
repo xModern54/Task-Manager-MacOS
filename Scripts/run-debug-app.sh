@@ -2,9 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR="$ROOT_DIR/.build/debug/Task Manager.app"
+STAGING_APP_DIR="$ROOT_DIR/.build/debug/Task Manager.app"
+APP_DIR="$ROOT_DIR/Task Manager.app"
 EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMac"
-PLIST="$APP_DIR/Contents/Info.plist"
+PLIST="$STAGING_APP_DIR/Contents/Info.plist"
 
 focus_app() {
   local attempts="${TASKMGMT_FOCUS_ATTEMPTS:-8}"
@@ -38,12 +39,12 @@ osascript -e 'tell application "Task Manager" to quit' 2>/dev/null || true
 sleep 1
 pkill -x TaskMgmtMac 2>/dev/null || true
 
-rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS"
-mkdir -p "$APP_DIR/Contents/Resources"
-cp "$EXECUTABLE" "$APP_DIR/Contents/MacOS/TaskMgmtMac"
+rm -rf "$STAGING_APP_DIR"
+mkdir -p "$STAGING_APP_DIR/Contents/MacOS"
+mkdir -p "$STAGING_APP_DIR/Contents/Resources"
+cp "$EXECUTABLE" "$STAGING_APP_DIR/Contents/MacOS/TaskMgmtMac"
 if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
-  cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
+  cp "$ROOT_DIR/Resources/AppIcon.icns" "$STAGING_APP_DIR/Contents/Resources/AppIcon.icns"
 fi
 
 plutil -create xml1 "$PLIST"
@@ -65,7 +66,10 @@ if [ -z "$SIGN_IDENTITY" ]; then
     SIGN_IDENTITY="-"
 fi
 
-codesign --force --options runtime --sign "$SIGN_IDENTITY" "$APP_DIR"
+codesign --force --options runtime --sign "$SIGN_IDENTITY" "$STAGING_APP_DIR"
 
-open "$APP_DIR"
+rm -rf "$APP_DIR"
+mv "$STAGING_APP_DIR" "$APP_DIR"
+
+open -n "$APP_DIR"
 focus_app

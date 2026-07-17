@@ -10,9 +10,10 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-app_dir="$repo_root/.build/debug/Task Manager.app"
+staging_app_dir="$repo_root/.build/debug/Task Manager.app"
+app_dir="$repo_root/Task Manager.app"
 executable="$repo_root/.build/debug/TaskMgmtMac"
-plist="$app_dir/Contents/Info.plist"
+plist="$staging_app_dir/Contents/Info.plist"
 remote_name="${GIT_REMOTE_NAME:-origin}"
 remote_url="${GIT_REMOTE_URL:-https://github.com/xModern54/Task-Manager-MacOS.git}"
 push_delay_seconds="${GIT_PUSH_DELAY_SECONDS:-1}"
@@ -72,12 +73,12 @@ echo "==> restart TaskMgmtMac"
 osascript -e 'tell application "Task Manager" to quit' 2>/dev/null || true
 sleep 1
 pkill -x TaskMgmtMac 2>/dev/null || true
-rm -rf "$app_dir"
-mkdir -p "$app_dir/Contents/MacOS"
-mkdir -p "$app_dir/Contents/Resources"
-cp "$executable" "$app_dir/Contents/MacOS/TaskMgmtMac"
+rm -rf "$staging_app_dir"
+mkdir -p "$staging_app_dir/Contents/MacOS"
+mkdir -p "$staging_app_dir/Contents/Resources"
+cp "$executable" "$staging_app_dir/Contents/MacOS/TaskMgmtMac"
 if [ -f "$repo_root/Resources/AppIcon.icns" ]; then
-    cp "$repo_root/Resources/AppIcon.icns" "$app_dir/Contents/Resources/AppIcon.icns"
+    cp "$repo_root/Resources/AppIcon.icns" "$staging_app_dir/Contents/Resources/AppIcon.icns"
 fi
 
 plutil -create xml1 "$plist" >/dev/null
@@ -99,9 +100,12 @@ if [ -z "$sign_identity" ]; then
     sign_identity="-"
 fi
 
-run_quietly "codesign app" codesign --force --options runtime --sign "$sign_identity" "$app_dir"
+run_quietly "codesign app" codesign --force --options runtime --sign "$sign_identity" "$staging_app_dir"
 
-open "$app_dir"
+rm -rf "$app_dir"
+mv "$staging_app_dir" "$app_dir"
+
+open -n "$app_dir"
 focus_app
 
 echo "==> git sync"
