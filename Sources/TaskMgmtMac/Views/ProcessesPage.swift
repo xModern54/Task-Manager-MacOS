@@ -66,10 +66,12 @@ struct ProcessesPage: View {
         }
         .alert(endTaskPromptTitle, isPresented: $isEndTaskConfirmationPresented) {
             Button("End task", role: .destructive) {
-                let result = viewModel.terminateSelectedTask()
-                guard !result.isSuccess else { return }
-                terminationErrorMessage = result.message
-                isTerminationErrorPresented = true
+                Task {
+                    let result = await viewModel.terminateSelectedTask()
+                    guard !result.isSuccess else { return }
+                    terminationErrorMessage = result.message
+                    isTerminationErrorPresented = true
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {

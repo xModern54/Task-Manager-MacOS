@@ -27,20 +27,6 @@ private func runLoginItemsScript() -> (status: Int32, output: String) {
     process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
     process.arguments = ["-e", loginItemsAppleScript]
 
-    if RootLaunchManager.isRunningAsRoot, let consoleUser = ConsoleUser.current {
-        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        process.arguments = [
-            "asuser",
-            "\(consoleUser.uid)",
-            "/usr/bin/sudo",
-            "-u",
-            consoleUser.name,
-            "/usr/bin/osascript",
-            "-e",
-            loginItemsAppleScript
-        ]
-    }
-
     let outputPipe = Pipe()
     process.standardOutput = outputPipe
     process.standardError = FileHandle.nullDevice

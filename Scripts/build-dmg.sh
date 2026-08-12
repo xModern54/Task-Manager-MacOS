@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="/Users/xmodern/Documents/TaskMgmtMac"
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 # Detect native architecture and target specific build
@@ -10,10 +10,12 @@ if [ "$ARCH" = "arm64" ]; then
     DMG_NAME="TaskMgmtMac-Darwin_aarch64-Shipping"
     SWIFT_ARCH="arm64"
     BINARY_SOURCE="$ROOT_DIR/.build/release/TaskMgmtMac"
+    HELPER_BINARY_SOURCE="$ROOT_DIR/.build/release/TaskMgmtMacPrivilegedHelper"
 else
     DMG_NAME="TaskMgmtMac-Darwin_amd64-Shipping"
     SWIFT_ARCH="x86_64"
     BINARY_SOURCE="$ROOT_DIR/.build/release/TaskMgmtMac"
+    HELPER_BINARY_SOURCE="$ROOT_DIR/.build/release/TaskMgmtMacPrivilegedHelper"
 fi
 
 # Allow overriding arch via environment variables for building specific release targets
@@ -23,10 +25,12 @@ if [ -n "${RELEASE_ARCH:-}" ]; then
         SWIFT_ARCH="arm64"
         # When compiling non-native architectures or multiple, SwiftPM puts them in apple/Products/Release
         BINARY_SOURCE="$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMac"
+        HELPER_BINARY_SOURCE="$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMacPrivilegedHelper"
     elif [ "$RELEASE_ARCH" = "x86_64" ]; then
         DMG_NAME="TaskMgmtMac-Darwin_amd64-Shipping"
         SWIFT_ARCH="x86_64"
         BINARY_SOURCE="$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMac"
+        HELPER_BINARY_SOURCE="$ROOT_DIR/.build/apple/Products/Release/TaskMgmtMacPrivilegedHelper"
     fi
 fi
 
@@ -45,9 +49,13 @@ RELEASE_APP_DIR="$ROOT_DIR/Task Manager.app"
 rm -rf "$RELEASE_APP_DIR"
 mkdir -p "$RELEASE_APP_DIR/Contents/MacOS"
 mkdir -p "$RELEASE_APP_DIR/Contents/Resources"
+mkdir -p "$RELEASE_APP_DIR/Contents/Library/LaunchDaemons"
 
 echo "==> Copying binary and assets..."
 cp "$BINARY_SOURCE" "$RELEASE_APP_DIR/Contents/MacOS/TaskMgmtMac"
+cp "$HELPER_BINARY_SOURCE" "$RELEASE_APP_DIR/Contents/Resources/TaskMgmtMacPrivilegedHelper"
+cp "$ROOT_DIR/Resources/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedHelper.plist" \
+  "$RELEASE_APP_DIR/Contents/Library/LaunchDaemons/com.xmodern.TaskMgmtMac.PrivilegedHelper.plist"
 
 if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
   cp "$ROOT_DIR/Resources/AppIcon.icns" "$RELEASE_APP_DIR/Contents/Resources/AppIcon.icns"
@@ -79,6 +87,10 @@ if [ -z "$SIGN_IDENTITY" ]; then
 fi
 
 echo "==> Code-signing the release bundle..."
+codesign --force --options runtime \
+  --identifier "com.xmodern.TaskMgmtMac.PrivilegedHelper" \
+  --sign "$SIGN_IDENTITY" \
+  "$RELEASE_APP_DIR/Contents/Resources/TaskMgmtMacPrivilegedHelper"
 codesign --force --options runtime --sign "$SIGN_IDENTITY" "$RELEASE_APP_DIR"
 
 # 2. Package into premium custom DMG

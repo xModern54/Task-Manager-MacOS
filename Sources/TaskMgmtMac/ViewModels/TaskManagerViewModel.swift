@@ -174,9 +174,9 @@ final class TaskManagerViewModel: ObservableObject {
         return "No process is selected."
     }
 
-    func terminateSelectedTask() -> ProcessTerminationResult {
+    func terminateSelectedTask() async -> ProcessTerminationResult {
         if let selectedProcessGroup {
-            return terminateProcessGroup(selectedProcessGroup)
+            return await terminateProcessGroup(selectedProcessGroup)
         }
 
         guard let process = selectedProcess else {
@@ -187,12 +187,12 @@ final class TaskManagerViewModel: ObservableObject {
             return ProcessTerminationResult(isSuccess: false, message: "Task Manager cannot end itself.")
         }
 
-        let result = kill(pid_t(process.pid), SIGTERM)
-        guard result == 0 else {
-            let message = String(cString: strerror(errno))
+        do {
+            try await terminate(process: process)
+        } catch {
             return ProcessTerminationResult(
                 isSuccess: false,
-                message: "Could not end \(process.name) (\(process.pid)): \(message)"
+                message: "Could not end \(process.name) (\(process.pid)): \(error.localizedDescription)"
             )
         }
 
@@ -453,7 +453,7 @@ final class TaskManagerViewModel: ObservableObject {
         }
     }
 
-    private func terminateProcessGroup(_ group: ProcessTableRow) -> ProcessTerminationResult {
+    private func terminateProcessGroup(_ group: ProcessTableRow) async -> ProcessTerminationResult {
         let currentPID = ProcessInfo.processInfo.processIdentifier
         let targetProcesses = group.children.filter { $0.pid != currentPID }
 
@@ -463,9 +463,10 @@ final class TaskManagerViewModel: ObservableObject {
 
         var failedMessages: [String] = []
         for process in targetProcesses {
-            let result = kill(pid_t(process.pid), SIGTERM)
-            if result != 0 {
-                failedMessages.append("\(process.name) (\(process.pid)): \(String(cString: strerror(errno)))")
+            do {
+                try await terminate(process: process)
+            } catch {
+                failedMessages.append("\(process.name) (\(process.pid)): \(error.localizedDescription)")
             }
         }
 
@@ -484,6 +485,19 @@ final class TaskManagerViewModel: ObservableObject {
             isSuccess: true,
             message: "Sent terminate signal to \(targetProcesses.count) processes in \(group.metric.name)."
         )
+    }
+
+    private func terminate(process: ProcessMetric) async throws {
+        if kill(pid_t(process.pid), SIGTERM) == 0 {
+            return
+        }
+
+        let localError = errno
+        guard localError == EPERM else {
+            throw ProcessTerminationError.posix(localError)
+        }
+
+        try await PrivilegedHelperClient.shared.terminateProcess(Int32(process.pid))
     }
 
     private func sortedProcesses(_ processes: [ProcessMetric]) -> [ProcessMetric] {
@@ -578,6 +592,17 @@ final class TaskManagerViewModel: ObservableObject {
 struct ProcessTerminationResult: Sendable {
     let isSuccess: Bool
     let message: String
+}
+
+private enum ProcessTerminationError: LocalizedError {
+    case posix(Int32)
+
+    var errorDescription: String? {
+        switch self {
+        case .posix(let code):
+            String(cString: strerror(code))
+        }
+    }
 }
 
 private struct ProcessAppGroup: Hashable {

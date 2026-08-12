@@ -60,14 +60,8 @@ actor PowermetricsSystemCPUSensorProvider: SystemCPUSensorProviding {
 
         let hidTemperature = IOHIDSystemCPUTemperatureReader.temperatureCelsius()
 
-        guard RootLaunchManager.isRunningAsRoot else {
-            cachedSnapshot.temperatureCelsius = hidTemperature ?? cachedSnapshot.temperatureCelsius
-            cachedSnapshot.lastError = "Root access required"
-            return cachedSnapshot
-        }
-
         do {
-            let output = try await runPowermetrics()
+            let output = try await PrivilegedHelperClient.shared.collectPowerMetrics()
             var nextSnapshot = PowermetricsCPUSensorParser.snapshot(from: output)
             nextSnapshot.temperatureCelsius = nextSnapshot.temperatureCelsius ?? hidTemperature
             cachedSnapshot = nextSnapshot
@@ -75,79 +69,12 @@ actor PowermetricsSystemCPUSensorProvider: SystemCPUSensorProviding {
         } catch {
             cachedSnapshot.temperatureCelsius = hidTemperature ?? cachedSnapshot.temperatureCelsius
             cachedSnapshot.lastError = error.localizedDescription
+            lastSampleDate = Date()
         }
 
         return cachedSnapshot
     }
 
-    private func runPowermetrics() async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                let process = Process()
-                let outputPipe = Pipe()
-                let errorPipe = Pipe()
-
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/powermetrics")
-                process.arguments = [
-                    "-n", "1",
-                    "-i", "1000",
-                    "--samplers", "cpu_power,gpu_power,ane_power,thermal",
-                    "--show-pstates",
-                    "--show-extra-power-info"
-                ]
-                process.standardOutput = outputPipe
-                process.standardError = errorPipe
-
-                do {
-                    try process.run()
-                } catch {
-                    continuation.resume(throwing: error)
-                    return
-                }
-
-                let deadline = Date().addingTimeInterval(10)
-                while process.isRunning {
-                    if Date() > deadline {
-                        process.terminate()
-                        continuation.resume(throwing: PowermetricsCPUSensorError.timeout)
-                        return
-                    }
-
-                    Thread.sleep(forTimeInterval: 0.05)
-                }
-
-                let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                let output = String(data: outputData, encoding: .utf8) ?? ""
-                let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
-
-                guard process.terminationStatus == 0 else {
-                    continuation.resume(
-                        throwing: PowermetricsCPUSensorError.commandFailed(
-                            errorOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-                        )
-                    )
-                    return
-                }
-
-                continuation.resume(returning: output)
-            }
-        }
-    }
-}
-
-private enum PowermetricsCPUSensorError: LocalizedError {
-    case timeout
-    case commandFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .timeout:
-            "powermetrics timed out"
-        case .commandFailed(let message):
-            message.isEmpty ? "powermetrics failed" : message
-        }
-    }
 }
 
 enum PowermetricsCPUSensorParser {

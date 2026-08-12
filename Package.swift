@@ -8,12 +8,23 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "TaskMgmtMac", targets: ["TaskMgmtMac"])
+        .executable(name: "TaskMgmtMac", targets: ["TaskMgmtMac"]),
+        .executable(name: "TaskMgmtMacPrivilegedHelper", targets: ["TaskMgmtMacPrivilegedHelper"])
     ],
     targets: [
+        .target(
+            name: "PrivilegedHelperIPC",
+            path: "Sources/PrivilegedHelperIPC"
+        ),
         .executableTarget(
             name: "TaskMgmtMac",
+            dependencies: ["PrivilegedHelperIPC"],
             path: "Sources/TaskMgmtMac"
+        ),
+        .executableTarget(
+            name: "TaskMgmtMacPrivilegedHelper",
+            dependencies: ["PrivilegedHelperIPC"],
+            path: "Sources/TaskMgmtMacPrivilegedHelper"
         ),
         .testTarget(
             name: "TaskMgmtMacTests",

@@ -13,6 +13,10 @@ cd "$repo_root"
 staging_app_dir="$repo_root/.build/debug/Task Manager.app"
 app_dir="$repo_root/Task Manager.app"
 executable="$repo_root/.build/debug/TaskMgmtMac"
+helper_executable="$repo_root/.build/debug/TaskMgmtMacPrivilegedHelper"
+helper_label="com.xmodern.TaskMgmtMac.PrivilegedHelper"
+helper_plist_source="$repo_root/Resources/LaunchDaemons/$helper_label.plist"
+helper_bundle_executable="$staging_app_dir/Contents/Resources/TaskMgmtMacPrivilegedHelper"
 plist="$staging_app_dir/Contents/Info.plist"
 remote_name="${GIT_REMOTE_NAME:-origin}"
 remote_url="${GIT_REMOTE_URL:-https://github.com/xModern54/Task-Manager-MacOS.git}"
@@ -76,7 +80,10 @@ pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$staging_app_dir"
 mkdir -p "$staging_app_dir/Contents/MacOS"
 mkdir -p "$staging_app_dir/Contents/Resources"
+mkdir -p "$staging_app_dir/Contents/Library/LaunchDaemons"
 cp "$executable" "$staging_app_dir/Contents/MacOS/TaskMgmtMac"
+cp "$helper_executable" "$helper_bundle_executable"
+cp "$helper_plist_source" "$staging_app_dir/Contents/Library/LaunchDaemons/$helper_label.plist"
 if [ -f "$repo_root/Resources/AppIcon.icns" ]; then
     cp "$repo_root/Resources/AppIcon.icns" "$staging_app_dir/Contents/Resources/AppIcon.icns"
 fi
@@ -100,6 +107,7 @@ if [ -z "$sign_identity" ]; then
     sign_identity="-"
 fi
 
+run_quietly "codesign helper" codesign --force --options runtime --identifier "$helper_label" --sign "$sign_identity" "$helper_bundle_executable"
 run_quietly "codesign app" codesign --force --options runtime --sign "$sign_identity" "$staging_app_dir"
 
 rm -rf "$app_dir"

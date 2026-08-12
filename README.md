@@ -24,7 +24,7 @@
 
 **TaskMgmtMac** is a lightweight, highly-optimized macOS system monitor that recreates the familiar shape, responsiveness, and features of the Windows Task Manager. 
 
-Unlike typical monitors that rely on heavy Electron wrappers or basic shell commands, TaskMgmtMac communicates directly with the macOS kernel, Mach microkernel, Metal, and IOKit. It features a modern modular architecture, optimized actors for background calculations, and a secure root relaunch gate for privileged tasks.
+Unlike typical monitors that rely on heavy Electron wrappers or basic shell commands, TaskMgmtMac communicates directly with the macOS kernel, Mach microkernel, Metal, and IOKit. It features a modern modular architecture, optimized actors for background calculations, and an optional least-privilege helper for privileged tasks.
 
 ---
 
@@ -71,28 +71,31 @@ To ensure low CPU overhead (refreshing every `0.5s`), TaskMgmtMac accesses nativ
 The codebase is organized in a modular, clean, and testable directory structure:
 
 ```text
-Sources/TaskMgmtMac
-├── Models             # Data representation models (System metrics, processes)
-├── Services           # Low-level system data providers & monitor actors
-│   ├── StartupItems   # Plist loaders & Login Item resolvers
-│   ├── SystemProcesses# Process details & native telemetry builders
-│   └── SystemResources# Kernel/Mach memory, GPU, powermetrics & IOHID temp readers
-├── ViewModels         # Main view models holding dynamic charts and snapshots
-├── Support            # Helper scripts, settings, theme configurators & Root Gate
-└── Views              # Native SwiftUI views and reusable performance graph modules
+Sources
+├── PrivilegedHelperIPC # Shared, typed XPC contract
+├── TaskMgmtMac
+│   ├── Models          # Data representation models (system metrics, processes)
+│   ├── Services        # Low-level providers, helper client & monitor actors
+│   ├── ViewModels      # Main view models holding charts and snapshots
+│   ├── Support         # Settings and theme configurators
+│   └── Views           # Native SwiftUI views and reusable graph modules
+└── TaskMgmtMacPrivilegedHelper # On-demand root launch daemon
 ```
 
 ---
 
-## 🛡️ Root Launch Gate & Security
+## 🛡️ Privileged Helper & Security
 
 Some system telemetry (like `powermetrics` and ending processes owned by other users) requires `root` privileges. 
 
-TaskMgmtMac features a secure **Root Launch Gate**:
-* On normal user launch, `RootLaunchGate` checks whether a local sudoers rule exists.
-* If present, it relaunches the exact current app executable as `root` without prompting the user for an administrator password.
-* The rule is installed at `/etc/sudoers.d/taskmgmtmac-root-launch` and **only** allows the exact TaskMgmtMac executable path with `NOPASSWD`. 
-* *It does not create a generic root wrapper or a shell backdoor.*
+TaskMgmtMac itself always runs as the logged-in user. Privileged features are optional and use a dedicated launch daemon:
+* The helper is embedded in the app and registered with `SMAppService.daemon`.
+* macOS owns installation approval and displays the helper in Login Items settings.
+* The app communicates with the daemon through a typed XPC interface.
+* The daemon accepts only the signed TaskMgmtMac client and exposes a fixed allowlist: power telemetry, `SIGTERM`, system launch-item control, and removal of the legacy sudoers rule.
+* `Run new task` always remains in the normal user context and is never forwarded to the helper.
+
+Production distributions containing the launch daemon must be Developer ID signed and notarized. The app remains usable when the helper is not installed; only privileged features are unavailable.
 
 ---
 

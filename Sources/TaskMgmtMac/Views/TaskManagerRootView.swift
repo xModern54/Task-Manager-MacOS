@@ -1,8 +1,10 @@
+import AppKit
 import SwiftUI
 
 struct TaskManagerRootView: View {
     @ObservedObject var viewModel: TaskManagerViewModel
     @EnvironmentObject private var settings: TaskManagerSettings
+    @EnvironmentObject private var helperManager: PrivilegedHelperManager
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,7 +56,12 @@ struct TaskManagerRootView: View {
         .background(WindowConfigurator())
         .task {
             viewModel.setRefreshInterval(settings.refreshInterval)
+            helperManager.offerInstallationIfNeeded()
             await viewModel.startRefreshing()
+        }
+        .sheet(isPresented: $helperManager.isInstallationPromptPresented) {
+            PrivilegedHelperInstallView()
+                .environmentObject(helperManager)
         }
         .onChange(of: settings.refreshInterval) { _, newInterval in
             viewModel.setRefreshInterval(newInterval)
@@ -66,6 +73,9 @@ struct TaskManagerRootView: View {
         .onChange(of: viewModel.selectedPerformanceDeviceID) { _, _ in
             guard viewModel.selectedSection == .devices else { return }
             viewModel.requestImmediateRefresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            helperManager.refresh()
         }
     }
 }

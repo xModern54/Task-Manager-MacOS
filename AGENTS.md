@@ -16,13 +16,15 @@ Settings is shown as a gear item pinned near the bottom of the sidebar.
 
 The sidebar expansion behavior is temporarily disabled. The code path can remain, but the UI should not currently expand to show text labels.
 
-The app has a root launch gate. On normal user launch, `RootLaunchGate` checks whether a local sudoers rule exists and can relaunch the exact current app executable as root without storing an administrator password.
+The GUI application must always run as the logged-in user. Do not relaunch the GUI as root or recreate a sudoers-based launch gate.
 
-The root launch rule is installed at `/etc/sudoers.d/taskmgmtmac-root-launch` and must only allow the exact TaskMgmtMac executable path with `NOPASSWD`. Do not broaden this into a generic root command wrapper or shell backdoor.
+Optional privileged operations use `SMAppService.daemon` and the embedded `TaskMgmtMacPrivilegedHelper` executable. IPC uses the shared, typed `PrivilegedHelperXPCProtocol` contract.
 
-`RootLaunchManager` owns root probing, sudoers installation, and root relaunch. Keep privileged launch behavior centralized there.
+Keep the helper API narrowly allowlisted. It currently permits powermetrics collection, sending `SIGTERM` to a specific PID, enabling or disabling a validated launchd target, and removing the legacy TaskMgmtMac sudoers rule. Never add a generic command or shell execution endpoint.
 
-The app may run as root after the launch gate succeeds. Code should still avoid mutating system settings unless the current task explicitly asks for it.
+The helper XPC listener must authenticate the client code signature. The main app should first perform operations with normal user privileges and use the helper only for operations that actually require elevation.
+
+The launch daemon plist lives inside the app at `Contents/Library/LaunchDaemons`, and its executable stays in `Contents/Resources`. Both executables must be signed with the same identity before the outer app bundle is signed.
 
 The Processes page uses real process data where available. The mock process list has been moved to a mock service and should only be used as a fallback or for isolated development.
 
@@ -82,7 +84,7 @@ Battery details come from IOKit power source and AppleSmartBattery data. Show th
 
 CPU extended sensors are collected only when the CPU performance device is selected. Frequency, thermal pressure, and SoC/package power come from `powermetrics`; CPU die temperature comes from IOHID temperature sensors.
 
-`PowermetricsSystemCPUSensorProvider` runs `/usr/bin/powermetrics` with `cpu_power,gpu_power,ane_power,thermal` samplers and parses CPU/E-core/P-core frequency, thermal pressure, CPU power, GPU power, ANE power, and combined package power.
+`PowermetricsSystemCPUSensorProvider` asks the privileged helper to run `/usr/bin/powermetrics` with `cpu_power,gpu_power,ane_power,thermal` samplers and parses CPU/E-core/P-core frequency, thermal pressure, CPU power, GPU power, ANE power, and combined package power.
 
 `IOHIDSystemCPUTemperatureReader` reads HID temperature services directly. Prefer `pACC`/`eACC` sensors when present; otherwise fall back to plausible `PMU tdie*` sensors and ignore calibration sensors such as `tcal`.
 
@@ -120,7 +122,7 @@ The repo uses `Scripts/run-debug-app.sh` to build a debug executable, wrap it in
 
 The debug app wrapper is assembled under `.build/debug`, then moved to `Task Manager.app` in the repository root.
 
-Because the app may be running as root, restart scripts should first ask the app to quit through Apple Events and then fall back to killing remaining `TaskMgmtMac` processes.
+Restart scripts should first ask the app to quit through Apple Events and then fall back to killing remaining `TaskMgmtMac` processes.
 
 The repo uses `Scripts/finish-task.sh` at the end of each completed task to run a quiet build, restart the debug app, stage changed files, create a commit, wait briefly, and push to the configured remote repository.
 

@@ -5,6 +5,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 STAGING_APP_DIR="$ROOT_DIR/.build/debug/Task Manager.app"
 APP_DIR="$ROOT_DIR/Task Manager.app"
 EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMac"
+HELPER_EXECUTABLE="$ROOT_DIR/.build/debug/TaskMgmtMacPrivilegedHelper"
+HELPER_LABEL="com.xmodern.TaskMgmtMac.PrivilegedHelper"
+HELPER_PLIST_SOURCE="$ROOT_DIR/Resources/LaunchDaemons/$HELPER_LABEL.plist"
+HELPER_BUNDLE_EXECUTABLE="$STAGING_APP_DIR/Contents/Resources/TaskMgmtMacPrivilegedHelper"
 PLIST="$STAGING_APP_DIR/Contents/Info.plist"
 
 focus_app() {
@@ -42,7 +46,10 @@ pkill -x TaskMgmtMac 2>/dev/null || true
 rm -rf "$STAGING_APP_DIR"
 mkdir -p "$STAGING_APP_DIR/Contents/MacOS"
 mkdir -p "$STAGING_APP_DIR/Contents/Resources"
+mkdir -p "$STAGING_APP_DIR/Contents/Library/LaunchDaemons"
 cp "$EXECUTABLE" "$STAGING_APP_DIR/Contents/MacOS/TaskMgmtMac"
+cp "$HELPER_EXECUTABLE" "$HELPER_BUNDLE_EXECUTABLE"
+cp "$HELPER_PLIST_SOURCE" "$STAGING_APP_DIR/Contents/Library/LaunchDaemons/$HELPER_LABEL.plist"
 if [ -f "$ROOT_DIR/Resources/AppIcon.icns" ]; then
   cp "$ROOT_DIR/Resources/AppIcon.icns" "$STAGING_APP_DIR/Contents/Resources/AppIcon.icns"
 fi
@@ -66,6 +73,7 @@ if [ -z "$SIGN_IDENTITY" ]; then
     SIGN_IDENTITY="-"
 fi
 
+codesign --force --options runtime --identifier "$HELPER_LABEL" --sign "$SIGN_IDENTITY" "$HELPER_BUNDLE_EXECUTABLE"
 codesign --force --options runtime --sign "$SIGN_IDENTITY" "$STAGING_APP_DIR"
 
 rm -rf "$APP_DIR"

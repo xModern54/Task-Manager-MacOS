@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsPage: View {
     @EnvironmentObject private var settings: TaskManagerSettings
+    @EnvironmentObject private var helperManager: PrivilegedHelperManager
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,12 +24,38 @@ struct SettingsPage: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     SettingsSection(title: "General") {
-                        SettingsValueRow(label: "Role", value: RootLaunchManager.isRunningAsRoot ? "Root" : "User")
+                        SettingsValueRow(label: "Application role", value: "User")
                         SettingsMenuRow(
                             label: "Refresh interval",
                             value: $settings.refreshInterval,
                             options: SettingsRefreshInterval.allCases
                         )
+                    }
+
+                    SettingsSection(title: "Privileged helper") {
+                        SettingsValueRow(label: "Status", value: helperManager.statusText)
+                        SettingsActionRow(
+                            label: helperManager.isEnabled ? "Remove helper" : "Install helper",
+                            systemImage: helperManager.isEnabled ? "trash" : "lock.shield",
+                            isEnabled: !helperManager.isWorking
+                        ) {
+                            Task {
+                                if helperManager.isEnabled {
+                                    await helperManager.unregister()
+                                } else {
+                                    await helperManager.register()
+                                }
+                            }
+                        }
+
+                        if helperManager.requiresApproval {
+                            SettingsActionRow(
+                                label: "Open Login Items settings",
+                                systemImage: "gear"
+                            ) {
+                                helperManager.openSystemSettings()
+                            }
+                        }
                     }
 
                     SettingsSection(title: "Appearance") {
@@ -93,6 +120,26 @@ private struct SettingsValueRow: View {
             Text(value)
                 .taskManagerFont(13)
                 .foregroundStyle(WindowsTaskManagerTheme.textSecondary)
+        }
+    }
+}
+
+private struct SettingsActionRow: View {
+    let label: String
+    let systemImage: String
+    var isEnabled = true
+    let action: () -> Void
+
+    var body: some View {
+        SettingsRowContainer {
+            Button(action: action) {
+                Label(label, systemImage: systemImage)
+                    .taskManagerFont(13)
+            }
+            .buttonStyle(.plain)
+            .disabled(!isEnabled)
+
+            Spacer()
         }
     }
 }

@@ -7,17 +7,13 @@ struct TaskMgmtMacApp: App {
         monitor: ProcessMonitor()
     )
     @StateObject private var settings = TaskManagerSettings()
-
-    init() {
-        RootLaunchManager.exitIfHandlingProbeArgument()
-    }
+    @StateObject private var helperManager = PrivilegedHelperManager()
 
     var body: some Scene {
         WindowGroup {
-            RootLaunchGate {
-                TaskManagerRootView(viewModel: viewModel)
-            }
+            TaskManagerRootView(viewModel: viewModel)
                 .environmentObject(settings)
+                .environmentObject(helperManager)
                 .preferredColorScheme(settings.preferredColorScheme)
                 .tint(settings.effectiveAccentColor)
                 .frame(width: 682, height: 660)

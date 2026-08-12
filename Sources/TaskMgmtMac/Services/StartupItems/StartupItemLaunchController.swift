@@ -2,23 +2,31 @@ import Foundation
 
 struct StartupItemLaunchController: Sendable {
     func setEnabled(_ enabled: Bool, item: StartupItem) async -> StartupItemLaunchControlResult {
-        await Task.detached(priority: .userInitiated) {
-            var failures: [String] = []
+        var failures: [String] = []
 
-            for target in item.controlTargets {
-                let result = runLaunchctl(enabled: enabled, target: target)
-                guard result.status == 0 else {
+        for target in item.controlTargets {
+            if target.domain == "system" {
+                do {
+                    try await PrivilegedHelperClient.shared.setLaunchItemEnabled(enabled, target: target.id)
+                } catch {
+                    failures.append("\(target.id): \(error.localizedDescription)")
+                }
+            } else {
+                let result = await Task.detached(priority: .userInitiated) {
+                    runLaunchctl(enabled: enabled, target: target)
+                }.value
+
+                if result.status != 0 {
                     failures.append("\(target.id): \(result.output)")
-                    continue
                 }
             }
+        }
 
-            if failures.isEmpty {
-                return StartupItemLaunchControlResult(success: true, message: nil)
-            }
+        if failures.isEmpty {
+            return StartupItemLaunchControlResult(success: true, message: nil)
+        }
 
-            return StartupItemLaunchControlResult(success: false, message: failures.joined(separator: "\n"))
-        }.value
+        return StartupItemLaunchControlResult(success: false, message: failures.joined(separator: "\n"))
     }
 }
 
