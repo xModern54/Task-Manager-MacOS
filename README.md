@@ -45,9 +45,8 @@ Unlike typical monitors that rely on heavy Electron wrappers or basic shell comm
 * **Network & Disk**: Deep packet metrics, interface speed, and MacBook internal SSD read/write monitoring.
 * **Battery**: Live status and power source tracking (visible only when an internal battery is present).
 
-### 🚀 3. Startup & Services Management
+### 🚀 3. Startup Management
 * **Startup Apps**: Manage launch configurations through Background Task Management APIs, LaunchAgent plists, and `SystemEvents` login items.
-* **Services**: View, start, and stop macOS background services and `launchd` systems directly.
 
 ---
 
@@ -75,7 +74,6 @@ The codebase is organized in a modular, clean, and testable directory structure:
 Sources/TaskMgmtMac
 ├── Models             # Data representation models (System metrics, processes)
 ├── Services           # Low-level system data providers & monitor actors
-│   ├── LaunchServices # Services list & control (launchctl wrapper)
 │   ├── StartupItems   # Plist loaders & Login Item resolvers
 │   ├── SystemProcesses# Process details & native telemetry builders
 │   └── SystemResources# Kernel/Mach memory, GPU, powermetrics & IOHID temp readers
