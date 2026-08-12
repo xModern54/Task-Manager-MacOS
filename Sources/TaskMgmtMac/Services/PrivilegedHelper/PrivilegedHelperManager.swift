@@ -28,7 +28,7 @@ final class PrivilegedHelperManager: ObservableObject {
         case .requiresApproval:
             "Approval required"
         case .notFound:
-            "Helper missing from app bundle"
+            "Not registered"
         @unknown default:
             "Unknown"
         }
@@ -78,7 +78,12 @@ final class PrivilegedHelperManager: ObservableObject {
         errorMessage = nil
 
         do {
-            if service.status == .notRegistered {
+            switch service.status {
+            case .notRegistered, .notFound:
+                try service.register()
+            case .enabled, .requiresApproval:
+                break
+            @unknown default:
                 try service.register()
             }
             refresh()
@@ -89,8 +94,13 @@ final class PrivilegedHelperManager: ObservableObject {
                 SMAppService.openSystemSettingsLoginItems()
             }
         } catch {
-            errorMessage = error.localizedDescription
             refresh()
+            if status == .requiresApproval {
+                errorMessage = nil
+                SMAppService.openSystemSettingsLoginItems()
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
 
         isWorking = false

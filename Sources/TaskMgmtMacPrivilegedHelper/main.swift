@@ -186,7 +186,7 @@ private func mainApplicationRequirement() -> String {
 
 private func currentTeamIdentifier() -> String? {
     var code: SecStaticCode?
-    let executableURL = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+    guard let executableURL = currentExecutableURL() else { return nil }
     guard SecStaticCodeCreateWithPath(executableURL as CFURL, [], &code) == errSecSuccess,
           let code else {
         return nil
@@ -199,6 +199,17 @@ private func currentTeamIdentifier() -> String? {
     }
 
     return dictionary[kSecCodeInfoTeamIdentifier as String] as? String
+}
+
+private func currentExecutableURL() -> URL? {
+    var bufferSize: UInt32 = 0
+    _ = _NSGetExecutablePath(nil, &bufferSize)
+    guard bufferSize > 0 else { return nil }
+
+    var buffer = [CChar](repeating: 0, count: Int(bufferSize))
+    guard _NSGetExecutablePath(&buffer, &bufferSize) == 0 else { return nil }
+    let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+    return URL(fileURLWithPath: String(decoding: bytes, as: UTF8.self)).resolvingSymlinksInPath()
 }
 
 guard geteuid() == 0 else {
