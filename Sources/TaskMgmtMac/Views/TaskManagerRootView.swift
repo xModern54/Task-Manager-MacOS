@@ -45,6 +45,12 @@ struct TaskManagerRootView: View {
                     StartupAppsPage(viewModel: viewModel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .layoutPriority(0)
+                case .kernel:
+                    KernelPage(
+                        snapshot: viewModel.kernelSnapshot,
+                        cpuHistory: viewModel.kernelCPUHistory,
+                        wiredMemoryHistory: viewModel.kernelWiredMemoryHistory
+                    )
                 case .settings:
                     SettingsPage()
                 }
@@ -67,8 +73,9 @@ struct TaskManagerRootView: View {
             viewModel.setRefreshInterval(newInterval)
         }
         .onChange(of: viewModel.selectedSection) { _, newSection in
-            guard newSection == .devices else { return }
-            viewModel.requestImmediateRefresh()
+            if newSection == .devices || newSection == .kernel {
+                viewModel.requestImmediateRefresh()
+            }
         }
         .onChange(of: viewModel.selectedPerformanceDeviceID) { _, _ in
             guard viewModel.selectedSection == .devices else { return }

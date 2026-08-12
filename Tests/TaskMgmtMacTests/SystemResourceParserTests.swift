@@ -70,3 +70,11 @@ import Testing
 
     #expect(external < primary)
 }
+
+@Test func extractsXNUIdentifierFromKernelBuildString() {
+    let version = "Darwin Kernel Version 25.5.0: Tue Jun 9; root:xnu-12377.121.10~1/RELEASE_ARM64_T8142"
+
+    #expect(KernelIdentity.xnuBuild(from: version) == "xnu-12377.121.10~1")
+    #expect(KernelIdentity.xnuBuild(from: "Darwin Kernel Version 25.5.0") == nil)
+    #expect(KernelIdentity.xnuBuild(from: nil) == nil)
+}

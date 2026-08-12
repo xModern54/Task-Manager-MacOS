@@ -32,6 +32,9 @@ final class TaskManagerViewModel: ObservableObject {
     @Published private(set) var batteryHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var batterySnapshot = SystemBatterySnapshot.unavailable
     @Published private(set) var cpuSensorSnapshot = SystemCPUSensorSnapshot.unavailable
+    @Published private(set) var kernelSnapshot = KernelSnapshot.unavailable
+    @Published private(set) var kernelCPUHistory = Array(repeating: 0.0, count: 60)
+    @Published private(set) var kernelWiredMemoryHistory = Array(repeating: 0.0, count: 60)
     @Published private(set) var visibleProcessRows: [ProcessTableRow] = []
     @Published private(set) var processFocusScrollTargetID: ProcessMetric.ID?
     @Published var selectedPerformanceDeviceID: PerformanceDevice.ID = "cpu"
@@ -45,6 +48,7 @@ final class TaskManagerViewModel: ObservableObject {
     private let npuInfoProvider: any SystemNPUInfoProviding
     private let batteryInfoProvider: any SystemBatteryInfoProviding
     private let cpuSensorProvider: any SystemCPUSensorProviding
+    private let kernelMonitor: any KernelMonitoringProviding
     private var immediateRefreshTask: Task<Void, Never>?
     private var isProcessTableScrolling = false
     private var pendingFocusedProcessID: ProcessMetric.ID?
@@ -56,7 +60,8 @@ final class TaskManagerViewModel: ObservableObject {
         networkInfoProvider: SystemNetworkInfoProviding = SystemConfigurationNetworkInfoProvider(),
         npuInfoProvider: SystemNPUInfoProviding = CoreMLSystemNPUInfoProvider(),
         batteryInfoProvider: SystemBatteryInfoProviding = IOKitSystemBatteryInfoProvider(),
-        cpuSensorProvider: SystemCPUSensorProviding = PowermetricsSystemCPUSensorProvider()
+        cpuSensorProvider: SystemCPUSensorProviding = PowermetricsSystemCPUSensorProvider(),
+        kernelMonitor: KernelMonitoringProviding = MachKernelMonitor()
     ) {
         self.monitor = monitor
         self.gpuInfoProvider = gpuInfoProvider
@@ -65,6 +70,7 @@ final class TaskManagerViewModel: ObservableObject {
         self.npuInfoProvider = npuInfoProvider
         self.batteryInfoProvider = batteryInfoProvider
         self.cpuSensorProvider = cpuSensorProvider
+        self.kernelMonitor = kernelMonitor
     }
 
     private func makeVisibleProcessRows(from processes: [ProcessMetric]) -> [ProcessTableRow] {
@@ -246,6 +252,7 @@ final class TaskManagerViewModel: ObservableObject {
         let shouldCollectPerformanceSamples = selectedSection == .devices
         let shouldCollectPowerSensors = selectedSection == .devices
             && ["cpu", "gpu0", "npu0", "battery0"].contains(selectedPerformanceDeviceID)
+        let shouldCollectKernelSnapshot = selectedSection == .kernel
 
         async let monitoredSnapshot = monitor.currentSnapshot(includesProcesses: shouldCollectProcessList)
         async let currentCPUSensorSnapshot = shouldCollectPowerSensors
@@ -266,6 +273,9 @@ final class TaskManagerViewModel: ObservableObject {
         async let currentBatterySnapshot = shouldCollectPerformanceSamples
             ? batteryInfoProvider.snapshot(includeDetails: selectedPerformanceDeviceID == "battery0")
             : SystemBatterySnapshot.unavailable
+        async let currentKernelSnapshot = shouldCollectKernelSnapshot
+            ? kernelMonitor.snapshot()
+            : KernelSnapshot.unavailable
 
         let nextSnapshot = await monitoredSnapshot
         let nextCPUSensorSnapshot = await currentCPUSensorSnapshot
@@ -274,6 +284,7 @@ final class TaskManagerViewModel: ObservableObject {
         let nextNetworkSnapshot = await currentNetworkSnapshot
         let nextNPUSnapshot = await currentNPUSnapshot
         let nextBatterySnapshot = await currentBatterySnapshot
+        let nextKernelSnapshot = await currentKernelSnapshot
 
         guard !Task.isCancelled else { return }
 
@@ -300,6 +311,12 @@ final class TaskManagerViewModel: ObservableObject {
             appendNetworkHistoryValue(Double(nextNetworkSnapshot.throughputBytesPerSecond))
             appendNPUHistoryValue(nextCPUSensorSnapshot.anePowerWatts ?? 0)
             appendBatteryHistoryValue(Double(nextBatterySnapshot.levelPercent))
+        }
+
+        if shouldCollectKernelSnapshot {
+            kernelSnapshot = nextKernelSnapshot
+            appendKernelCPUHistoryValue(nextKernelSnapshot.kernelCPUPercent)
+            appendKernelWiredMemoryHistoryValue(Double(nextKernelSnapshot.wiredMemoryBytes))
         }
 
         if shouldCollectProcessList,
@@ -450,6 +467,22 @@ final class TaskManagerViewModel: ObservableObject {
 
         if batteryHistory.count > historyLimit {
             batteryHistory.removeFirst(batteryHistory.count - historyLimit)
+        }
+    }
+
+    private func appendKernelCPUHistoryValue(_ value: Double) {
+        kernelCPUHistory.append(value)
+
+        if kernelCPUHistory.count > historyLimit {
+            kernelCPUHistory.removeFirst(kernelCPUHistory.count - historyLimit)
+        }
+    }
+
+    private func appendKernelWiredMemoryHistoryValue(_ value: Double) {
+        kernelWiredMemoryHistory.append(value)
+
+        if kernelWiredMemoryHistory.count > historyLimit {
+            kernelWiredMemoryHistory.removeFirst(kernelWiredMemoryHistory.count - historyLimit)
         }
     }
 
@@ -693,6 +726,7 @@ enum SortDirection: Hashable, Sendable {
 enum TaskManagerSection: String, CaseIterable, Identifiable {
     case processes = "Processes"
     case devices = "Devices"
+    case kernel = "Kernel"
     case startupApps = "Startup apps"
     case settings = "Settings"
 
@@ -704,6 +738,8 @@ enum TaskManagerSection: String, CaseIterable, Identifiable {
             "square.grid.2x2"
         case .devices:
             "waveform.path.ecg.rectangle"
+        case .kernel:
+            "cpu"
         case .startupApps:
             "speedometer"
         case .settings:
